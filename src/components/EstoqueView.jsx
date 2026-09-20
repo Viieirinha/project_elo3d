@@ -1,23 +1,37 @@
-import { useEffect, useState } from 'react'
-import { Package, Trash2, Pencil, ImageOff, AlertTriangle, ArrowDownCircle } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Package, Trash2, Pencil, ImageOff, AlertTriangle, ArrowDownCircle, Search } from 'lucide-react'
 import { formatBRL } from '../utils/format.js'
 import { getProdutos, removerProduto, registrarMovimentacao, atualizarProduto } from '../utils/estoque.js'
 import { getEstoqueMinimo } from '../utils/config.js'
+import { getCategorias } from '../utils/categorias.js'
 import EntradaEstoqueModal from './EntradaEstoqueModal.jsx'
 import EditarProdutoModal from './EditarProdutoModal.jsx'
 import ConfirmDialog from './ui/ConfirmDialog.jsx'
 
 export default function EstoqueView() {
   const [produtos, setProdutos] = useState([])
+  const [categorias, setCategorias] = useState([])
   const [estoqueMinimo, setEstoqueMinimo] = useState(5)
   const [modalAberto, setModalAberto] = useState(false)
   const [produtoParaExcluir, setProdutoParaExcluir] = useState(null)
   const [produtoParaEditar, setProdutoParaEditar] = useState(null)
+  const [busca, setBusca] = useState('')
+  const [categoriaFiltro, setCategoriaFiltro] = useState('')
 
   useEffect(() => {
     getProdutos().then(setProdutos)
     getEstoqueMinimo().then(setEstoqueMinimo)
+    getCategorias().then(setCategorias)
   }, [])
+
+  const produtosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    return produtos.filter((p) => {
+      if (termo && !p.nome.toLowerCase().includes(termo)) return false
+      if (categoriaFiltro && (p.categoria?.trim() || 'Sem categoria') !== categoriaFiltro) return false
+      return true
+    })
+  }, [produtos, busca, categoriaFiltro])
 
   async function handleConfirmarExclusao() {
     setProdutos(await removerProduto(produtoParaExcluir.id))
@@ -65,6 +79,34 @@ export default function EstoqueView() {
         </button>
       </div>
 
+      {produtos.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar produto..."
+              className="w-full rounded-full border border-elo-border bg-surface-subtle py-2 pl-8 pr-3 text-xs text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)]"
+            />
+          </div>
+          <select
+            value={categoriaFiltro}
+            onChange={(e) => setCategoriaFiltro(e.target.value)}
+            className="rounded-full border border-elo-border bg-surface-subtle px-3 py-2 text-xs font-medium text-ink-primary outline-none"
+          >
+            <option value="">Todas as categorias</option>
+            {categorias.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            <option value="Sem categoria">Sem categoria</option>
+          </select>
+        </div>
+      )}
+
       {produtosBaixos.length > 0 && (
         <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-elo-yellow/30 bg-elo-yellow/10 px-4 py-3 text-sm text-elo-yellow">
           <AlertTriangle size={16} className="mt-0.5 shrink-0" />
@@ -82,9 +124,14 @@ export default function EstoqueView() {
             Registre um produto na tela da Calculadora para ele aparecer aqui.
           </p>
         </div>
+      ) : produtosFiltrados.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-elo-border bg-elo-card/60 px-6 py-16 text-center">
+          <Search size={32} className="text-ink-muted" />
+          <p className="text-sm text-ink-muted">Nenhum produto encontrado para esse filtro.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {produtos.map((produto) => {
+          {produtosFiltrados.map((produto) => {
             const estoqueBaixo = produto.quantidade <= estoqueMinimo
             return (
               <div
