@@ -44,6 +44,9 @@ Cadastro de novos usuários exige o `CODIGO_CONVITE`; sem essa variável o cadas
 
 Atualizações futuras: só `./deploy.sh root@IP_DO_VPS`.
 
+Sem SSH (web console do VPS)? Clone o repositório em `/opt/elo3d-src`, rode `bash deploy/setup-vps.sh` e,
+a cada atualização, `bash deploy/deploy-no-servidor.sh` (faz `git pull`, build e publicação no próprio servidor).
+
 ## Migrando os dados do Firebase para o Postgres
 
 Duas etapas, para que sua senha do Firebase nunca vá para o servidor. Não altera nada no Firebase.
