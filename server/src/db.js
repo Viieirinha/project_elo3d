@@ -7,6 +7,9 @@ pg.types.setTypeParser(1082, (v) => v)
 
 export const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
 
+// Sem este handler, uma conexão ociosa derrubada pelo Postgres (reinício, rede) encerraria o processo.
+pool.on('error', (err) => console.error('Erro em conexão ociosa do banco:', err.message))
+
 export async function tx(fn) {
   const client = await pool.connect()
   try {

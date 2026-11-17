@@ -7,6 +7,7 @@ set -euo pipefail
 
 [ "$(id -u)" -eq 0 ] || { echo "Rode como root."; exit 1; }
 cd "$(dirname "$0")/.."
+REPO="$(pwd)"
 
 echo ">> Atualizando o código"
 git pull --ff-only
@@ -18,6 +19,9 @@ npm run build
 echo ">> Publicando"
 rsync -a --delete dist/ /var/www/elo3d/dist/
 rsync -a --delete --exclude node_modules server/ /opt/elo3d/server/
+
+echo ">> Nginx (cabeçalhos de segurança e cache; com teste e rollback)"
+bash "$REPO/deploy/aplicar-nginx.sh"
 
 echo ">> Atualizando a API"
 cd /opt/elo3d/server

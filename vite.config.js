@@ -23,7 +23,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+        // Ícones PNG (manifest/favicon) não precisam ficar em cache offline: só o código, estilos e o logo leve.
+        globPatterns: ['**/*.{js,css,html,svg,ico,webp,woff2}'],
         navigateFallbackDenylist: [/^\/__/, /^\/api\//],
       },
     }),

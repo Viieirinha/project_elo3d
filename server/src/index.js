@@ -105,7 +105,8 @@ app.put('/api/config/estoque-minimo', t(async (c, req) => ({
   valor: await s.setEstoqueMinimo(c, s.numero(req.body?.valor, 'estoque mínimo', { inteiro: true })),
 })))
 
-app.get('/api/produtos', q((c) => s.getProdutos(c)))
+// ?fotos=0 devolve a lista sem as imagens (muito mais leve) para telas que só precisam de nome/preço/estoque.
+app.get('/api/produtos', q((c, req) => s.getProdutos(c, { comFoto: req.query.fotos !== '0' })))
 app.post('/api/produtos', t((c, req) => s.registrarProduto(c, req.body ?? {}, autor(req))))
 app.put('/api/produtos/:id', t((c, req) => s.atualizarProduto(c, req.params.id, req.body ?? {}, autor(req))))
 app.delete('/api/produtos/:id', t((c, req) => s.removerProduto(c, req.params.id)))
@@ -133,4 +134,16 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Erro interno.' })
 })
 
-app.listen(PORT, '127.0.0.1', () => console.log(`API ELO 3D em 127.0.0.1:${PORT}`))
+const servidor = app.listen(PORT, '127.0.0.1', () => console.log(`API ELO 3D em 127.0.0.1:${PORT}`))
+
+// Encerramento limpo (systemctl stop/restart): termina as requisições em andamento e fecha o banco.
+function encerrar(sinal) {
+  console.log(`${sinal} recebido, encerrando...`)
+  servidor.close(async () => {
+    await pool.end().catch(() => {})
+    process.exit(0)
+  })
+  setTimeout(() => process.exit(1), 10_000).unref()
+}
+process.on('SIGTERM', () => encerrar('SIGTERM'))
+process.on('SIGINT', () => encerrar('SIGINT'))

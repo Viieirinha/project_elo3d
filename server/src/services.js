@@ -87,20 +87,32 @@ export async function setEstoqueMinimo(c, valor) {
 }
 
 // ---------- produtos / estoque ----------
-export async function getProdutos(c) {
-  return camelAll(await c.query('SELECT * FROM produtos ORDER BY criado_em'))
+// A foto vai em base64 dentro do registro (até ~700 KB cada). Telas que só precisam de nome, preço
+// e quantidade pedem a lista sem foto (`comFoto: false`), com `temFoto` indicando se existe.
+export async function getProdutos(c, { comFoto = true } = {}) {
+  if (comFoto) return camelAll(await c.query('SELECT * FROM produtos ORDER BY criado_em'))
+  return camelAll(
+    await c.query(
+      `SELECT id, nome, categoria, quantidade, custo_unitario, preco_venda, criado_em, criado_por,
+              atualizado_em, atualizado_por, partes, altura, largura, profundidade, unidade_medida,
+              (foto IS NOT NULL) AS tem_foto
+       FROM produtos ORDER BY criado_em`
+    )
+  )
 }
 
 export async function getMovimentacoes(c) {
   return camelAll(await c.query('SELECT * FROM movimentacoes ORDER BY criado_em DESC'))
 }
 
-export async function registrarMovimentacao(c, { produtoId, tipo, quantidade, motivo }, autor) {
+// Aplica a movimentação (ajusta o estoque e grava o histórico) sem montar listas de retorno.
+// Venda, estorno e cadastro usam esta; só a rota de movimentação devolve as listas completas.
+async function aplicarMovimentacao(c, { produtoId, tipo, quantidade, motivo }, autor) {
   if (!['entrada', 'saida'].includes(tipo)) throw new HttpError(400, 'Tipo de movimentação inválido.')
   const qtd = numero(quantidade, 'quantidade', { min: 1, inteiro: true })
   validarId(produtoId)
 
-  const r = await c.query('SELECT * FROM produtos WHERE id = $1 FOR UPDATE', [produtoId])
+  const r = await c.query('SELECT id, nome FROM produtos WHERE id = $1 FOR UPDATE', [produtoId])
   const produto = r.rows[0]
   if (produto) {
     const delta = tipo === 'entrada' ? qtd : -qtd
@@ -124,6 +136,10 @@ export async function registrarMovimentacao(c, { produtoId, tipo, quantidade, mo
     ]
   )
 
+}
+
+export async function registrarMovimentacao(c, dados, autor) {
+  await aplicarMovimentacao(c, dados, autor)
   return { produtos: await getProdutos(c), movimentacoes: await getMovimentacoes(c) }
 }
 
@@ -175,12 +191,12 @@ export async function registrarProduto(c, dados, autor) {
 
   if (categoria) await adicionarCategoria(c, categoria)
 
-  const { produtos } = await registrarMovimentacao(
+  await aplicarMovimentacao(
     c,
     { produtoId, tipo: 'entrada', quantidade, motivo: existente ? 'Produção adicionada' : 'Cadastro inicial' },
     autor
   )
-  return produtos
+  return getProdutos(c)
 }
 
 export async function atualizarProduto(c, id, dados, autor) {
@@ -242,7 +258,7 @@ async function inserirVenda(c, { produtoId, quantidade, valorUnitario }, autor) 
   const qtd = numero(quantidade, 'quantidade', { min: 1, inteiro: true })
   const valor = numero(valorUnitario, 'valor unitário')
 
-  const produto = (await c.query('SELECT * FROM produtos WHERE id = $1', [produtoId])).rows[0]
+  const produto = (await c.query('SELECT nome, custo_unitario FROM produtos WHERE id = $1', [produtoId])).rows[0]
   if (!produto) throw new HttpError(404, 'Produto não encontrado.')
 
   const custoUnitario = produto.custo_unitario ?? 0
@@ -255,7 +271,7 @@ async function inserirVenda(c, { produtoId, quantidade, valorUnitario }, autor) 
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
     [produtoId, produto.nome, qtd, valor, valorTotal, custoUnitario, custoTotal, valorTotal - custoTotal, autor]
   )
-  await registrarMovimentacao(c, { produtoId, tipo: 'saida', quantidade: qtd, motivo: 'Venda' }, autor)
+  await aplicarMovimentacao(c, { produtoId, tipo: 'saida', quantidade: qtd, motivo: 'Venda' }, autor)
 }
 
 export async function registrarVenda(c, dados, autor) {
@@ -268,7 +284,7 @@ export async function removerVenda(c, id, autor) {
   const venda = (await c.query('SELECT * FROM vendas WHERE id = $1 FOR UPDATE', [id])).rows[0]
   if (venda) {
     if (venda.produto_id) {
-      await registrarMovimentacao(
+      await aplicarMovimentacao(
         c,
         { produtoId: venda.produto_id, tipo: 'entrada', quantidade: venda.quantidade, motivo: 'Estorno de venda' },
         autor

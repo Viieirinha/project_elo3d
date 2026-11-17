@@ -56,9 +56,7 @@ fi
 echo ">> Serviço da API e Nginx..."
 SRC="$(cd "$(dirname "$0")" && pwd)"
 install -m 644 "$SRC/elo3d-api.service" /etc/systemd/system/elo3d-api.service
-install -m 644 "$SRC/nginx.conf" /etc/nginx/sites-available/elo3d
-ln -sf /etc/nginx/sites-available/elo3d /etc/nginx/sites-enabled/elo3d
-nginx -t
+bash "$SRC/aplicar-nginx.sh"
 
 echo ">> Backup diário do banco..."
 install -m 755 "$SRC/backup-db.sh" /usr/local/sbin/elo3d-backup

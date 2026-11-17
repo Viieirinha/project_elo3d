@@ -1,6 +1,7 @@
 import { api } from './api.js'
 
-export const getProdutos = () => api('/produtos')
+// `{ comFoto: false }` evita baixar as imagens (base64) quando a tela só precisa de nome, preço e estoque.
+export const getProdutos = ({ comFoto = true } = {}) => api(comFoto ? '/produtos' : '/produtos?fotos=0')
 export const getMovimentacoes = () => api('/movimentacoes')
 
 // Retorna a lista atualizada de produtos.
