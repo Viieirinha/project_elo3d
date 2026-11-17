@@ -1,19 +1,21 @@
 import { Disc3, Plus, Trash2 } from 'lucide-react'
 import SectionCard from './ui/SectionCard.jsx'
 import NumberField from './ui/NumberField.jsx'
+import { nomeDoFilamento } from './PartesSection.jsx'
 
 function gerarIdFilamento() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 export function criarFilamentoVazio() {
-  return { id: gerarIdFilamento(), precoRolo: '', pesoRolo: '', filamentoUsado: '' }
+  return { id: gerarIdFilamento(), nome: '', precoRolo: '', pesoRolo: '', filamentoUsado: '' }
 }
 
 export default function FilamentoSection({ data, onChange }) {
   const filamentos = data.filamentos
   const quantidadePecas = parseInt(data.quantidadePecas, 10)
   const emLote = quantidadePecas > 1
+  const modoPartes = Boolean(data.modoPartes)
 
   function atualizarFilamento(id, campo, valor) {
     onChange({
@@ -33,10 +35,13 @@ export default function FilamentoSection({ data, onChange }) {
   return (
     <SectionCard
       icon={<Disc3 size={19} className="text-white" />}
-      title="Filamento"
-      subtitle="Custo do material usado na peça"
+      title={modoPartes ? 'Filamentos' : 'Filamento'}
+      subtitle={
+        modoPartes ? 'Cadastre os rolos; as gramas de cada parte vão em "Partes do objeto"' : 'Custo do material usado na peça'
+      }
       accent="from-elo-blue to-elo-magenta"
     >
+      {!modoPartes && (
       <div className="rounded-xl border border-elo-border bg-surface-subtle p-3.5">
         <NumberField
           label="Quantidade de peças nesta impressão"
@@ -53,22 +58,38 @@ export default function FilamentoSection({ data, onChange }) {
           </p>
         )}
       </div>
+      )}
 
       {filamentos.map((filamento, index) => (
         <div key={filamento.id} className={index > 0 ? 'border-t border-elo-border/60 pt-4' : undefined}>
-          {filamentos.length > 1 && (
+          {(filamentos.length > 1 || modoPartes) && (
             <div className="mb-3 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Filamento {index + 1}
+                {modoPartes ? nomeDoFilamento(filamento, index) : `Filamento ${index + 1}`}
               </span>
-              <button
-                type="button"
-                onClick={() => removerFilamento(filamento.id)}
-                className="flex items-center gap-1 rounded-full p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-red-400"
-              >
-                <Trash2 size={13} />
-              </button>
+              {filamentos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removerFilamento(filamento.id)}
+                  aria-label={`Remover filamento ${index + 1}`}
+                  className="flex items-center gap-1 rounded-full p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-red-400"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
             </div>
+          )}
+          {modoPartes && (
+            <label className="mb-4 flex flex-col gap-1.5">
+              <span className="text-[13px] font-medium text-ink-secondary">Nome / cor (opcional)</span>
+              <input
+                type="text"
+                value={filamento.nome}
+                onChange={(e) => atualizarFilamento(filamento.id, 'nome', e.target.value)}
+                placeholder="Ex: PLA branco"
+                className="rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
+              />
+            </label>
           )}
           <div className="grid grid-cols-2 gap-4">
             <NumberField
@@ -88,6 +109,7 @@ export default function FilamentoSection({ data, onChange }) {
               tooltip="Peso total do rolo de filamento, geralmente 1000g (1kg)."
             />
           </div>
+          {!modoPartes && (
           <div className="mt-4">
             <NumberField
               label={emLote ? 'Filamento usado nesta impressão (total)' : 'Filamento usado nesta peça'}
@@ -102,6 +124,7 @@ export default function FilamentoSection({ data, onChange }) {
               }
             />
           </div>
+          )}
         </div>
       ))}
 

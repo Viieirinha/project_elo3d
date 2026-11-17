@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Package, Trash2, Pencil, ImageOff, AlertTriangle, ArrowDownCircle, Search } from 'lucide-react'
-import { formatBRL } from '../utils/format.js'
+import { Package, Trash2, Pencil, ImageOff, AlertTriangle, ArrowDownCircle, Search, Ruler, Boxes } from 'lucide-react'
+import { formatBRL, formatNumber } from '../utils/format.js'
+import { formatarMedidas } from '../utils/medidas.js'
 import { getProdutos, removerProduto, registrarMovimentacao, atualizarProduto } from '../utils/estoque.js'
 import { getEstoqueMinimo } from '../utils/config.js'
 import { getCategorias } from '../utils/categorias.js'
@@ -133,6 +134,7 @@ export default function EstoqueView() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {produtosFiltrados.map((produto) => {
             const estoqueBaixo = produto.quantidade <= estoqueMinimo
+            const medidas = formatarMedidas(produto)
             return (
               <div
                 key={produto.id}
@@ -186,6 +188,35 @@ export default function EstoqueView() {
                     </span>
                   )}
                 </div>
+
+                {medidas && (
+                  <p className="mt-2 flex items-center gap-1.5 text-xs text-ink-muted">
+                    <Ruler size={12} className="shrink-0" />
+                    {medidas}
+                  </p>
+                )}
+
+                {produto.partes?.length > 0 && (
+                  <details className="mt-2 rounded-lg border border-elo-border/60 bg-surface-subtle px-2.5 py-1.5 text-xs text-ink-secondary">
+                    <summary className="flex cursor-pointer items-center gap-1.5 font-medium">
+                      <Boxes size={12} className="shrink-0 text-ink-muted" />
+                      {produto.partes.length} parte(s)
+                    </summary>
+                    <ul className="mt-1.5 flex flex-col gap-1 pb-1">
+                      {produto.partes.map((parte, i) => (
+                        <li key={i} className="flex justify-between gap-2">
+                          <span className="truncate">
+                            {parte.nome}
+                            {parte.quantidade > 1 && ` ×${parte.quantidade}`} · {formatNumber(parte.gramas, 0)} g
+                          </span>
+                          <span className="shrink-0 font-medium text-ink-primary">
+                            {formatBRL(parte.precoUnitario)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
 
                 <div className="mt-3 flex items-center justify-between border-t border-elo-border/60 pt-3 text-xs text-ink-muted">
                   <span>Custo: {formatBRL(produto.custoUnitario)}</span>

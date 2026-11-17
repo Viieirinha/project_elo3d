@@ -13,7 +13,8 @@ const PRESETS = [
 
 export default function EnergiaSection({ data, onChange }) {
   const [activePreset, setActivePreset] = useState('Bambu A1')
-  const emLote = parseInt(data.quantidadePecas, 10) > 1
+  const modoPartes = Boolean(data.modoPartes)
+  const emLote = !modoPartes && parseInt(data.quantidadePecas, 10) > 1
 
   return (
     <SectionCard
@@ -58,6 +59,12 @@ export default function EnergiaSection({ data, onChange }) {
         tooltip="Potência média consumida pela impressora durante a impressão, em Watts (W)."
       />
 
+      {modoPartes ? (
+        <p className="rounded-xl border border-elo-border bg-surface-subtle px-3.5 py-2.5 text-[11px] leading-relaxed text-ink-muted">
+          O tempo de impressão é informado em cada parte, em "Partes do objeto".
+        </p>
+      ) : (
+        <>
       <div className="grid grid-cols-2 gap-4">
         <NumberField
           label={emLote ? 'Tempo total — horas' : 'Tempo de impressão — horas'}
@@ -89,6 +96,9 @@ export default function EnergiaSection({ data, onChange }) {
           Tempo total da impressão (todas as peças juntas) — será dividido automaticamente por{' '}
           {data.quantidadePecas}.
         </p>
+      )}
+
+        </>
       )}
 
       <div>

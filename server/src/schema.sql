@@ -20,6 +20,14 @@ CREATE TABLE IF NOT EXISTS produtos (
   atualizado_em  timestamptz,
   atualizado_por text
 );
+-- Partes do objeto (lista de {nome, quantidade, gramas, custoUnitario, precoUnitario}) e tamanho.
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS partes jsonb;
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS altura numeric(10,3);
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS largura numeric(10,3);
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS profundidade numeric(10,3);
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS unidade_medida text NOT NULL DEFAULT 'cm'
+  CHECK (unidade_medida IN ('cm', 'm'));
+
 CREATE UNIQUE INDEX IF NOT EXISTS produtos_nome_uq ON produtos (lower(btrim(nome)));
 
 CREATE TABLE IF NOT EXISTS movimentacoes (

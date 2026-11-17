@@ -4,9 +4,10 @@ import Header from './components/Header.jsx'
 import FilamentoSection, { criarFilamentoVazio } from './components/FilamentoSection.jsx'
 import EnergiaSection from './components/EnergiaSection.jsx'
 import CustosAdicionaisSection from './components/CustosAdicionaisSection.jsx'
+import PartesSection, { criarParteVazia } from './components/PartesSection.jsx'
 import ResultadoSection from './components/ResultadoSection.jsx'
 import { useAuth } from './utils/AuthContext.jsx'
-import { parseLocaleNumber } from './utils/format.js'
+import { calcularResultado } from './utils/calculo.js'
 
 const LoginView = lazy(() => import('./components/LoginView.jsx'))
 const EstoqueView = lazy(() => import('./components/EstoqueView.jsx'))
@@ -33,9 +34,12 @@ function Rodape() {
 }
 
 function criarEstadoPadrao() {
+  const filamento = criarFilamentoVazio()
   return {
+    modoPartes: false,
+    partes: [criarParteVazia(filamento.id)],
     quantidadePecas: '1',
-    filamentos: [criarFilamentoVazio()],
+    filamentos: [filamento],
     consumoW: '200',
     horas: '',
     minutos: '',
@@ -51,57 +55,21 @@ export default function App() {
   const { user, carregando } = useAuth()
   const [form, setForm] = useState(criarEstadoPadrao)
   const [margem, setMargem] = useState(DEFAULT_MARGEM)
+  const [precoManual, setPrecoManual] = useState(null)
   const [view, setView] = useState('calculadora')
 
-  const results = useMemo(() => {
-    const quantidadePecas = Math.max(1, parseLocaleNumber(form.quantidadePecas) || 1)
+  const results = useMemo(() => calcularResultado(form, margem, precoManual), [form, margem, precoManual])
 
-    const filamentos = form.filamentos.map((f) => ({
-      precoRolo: parseLocaleNumber(f.precoRolo),
-      pesoRolo: parseLocaleNumber(f.pesoRolo),
-      filamentoUsado: parseLocaleNumber(f.filamentoUsado) / quantidadePecas,
-      pesoRoloTexto: f.pesoRolo,
-    }))
-    const consumoW = parseLocaleNumber(form.consumoW)
-    const horas = parseLocaleNumber(form.horas)
-    const minutos = parseLocaleNumber(form.minutos)
-    const valorKwh = parseLocaleNumber(form.valorKwh)
-    const custoFixo = parseLocaleNumber(form.custoFixo)
-    const maoDeObra = parseLocaleNumber(form.maoDeObra)
-
-    const tempoTotalHoras = (horas + minutos / 60) / quantidadePecas
-    const pesoRoloInvalido = filamentos.some((f) => f.pesoRoloTexto.trim() !== '' && f.pesoRolo <= 0)
-    const tempoInvalido = (form.horas.trim() !== '' || form.minutos.trim() !== '') && tempoTotalHoras <= 0
-    const hasError = pesoRoloInvalido || tempoInvalido
-
-    const custoFilamento = filamentos.reduce(
-      (acc, f) => acc + (f.pesoRolo > 0 ? (f.precoRolo / f.pesoRolo) * f.filamentoUsado : 0),
-      0
-    )
-    const filamentoTotalUsado = filamentos.reduce((acc, f) => acc + f.filamentoUsado, 0)
-    const custoEnergia = tempoTotalHoras > 0 ? (consumoW / 1000) * tempoTotalHoras * valorKwh : 0
-    const custoTotal = custoFilamento + custoEnergia + custoFixo + maoDeObra
-    const precoVenda = custoTotal * (1 + margem / 100)
-    const custoPorGrama = filamentoTotalUsado > 0 ? custoTotal / filamentoTotalUsado : 0
-    const custoPorHora = tempoTotalHoras > 0 ? custoTotal / tempoTotalHoras : 0
-
-    return {
-      quantidadePecas,
-      custoFilamento,
-      custoEnergia,
-      custoFixo,
-      maoDeObra,
-      custoTotal,
-      precoVenda,
-      custoPorGrama,
-      custoPorHora,
-      hasError,
-    }
-  }, [form, margem])
+  // Mexer na margem (controle ou atalhos) descarta o preço digitado à mão.
+  function handleMargemChange(valor) {
+    setPrecoManual(null)
+    setMargem(valor)
+  }
 
   function handleReset() {
     setForm(criarEstadoPadrao())
     setMargem(DEFAULT_MARGEM)
+    setPrecoManual(null)
   }
 
   if (carregando) {
@@ -174,9 +142,37 @@ export default function App() {
               </button>
             </div>
 
+            <div
+              role="group"
+              aria-label="Tipo de objeto"
+              className="mb-6 inline-flex rounded-full border border-elo-border bg-surface-subtle p-1"
+            >
+              {[
+                { valor: false, rotulo: 'Peça única' },
+                { valor: true, rotulo: 'Objeto com partes' },
+              ].map((opcao) => (
+                <button
+                  key={opcao.rotulo}
+                  type="button"
+                  aria-pressed={form.modoPartes === opcao.valor}
+                  onClick={() => setForm({ ...form, modoPartes: opcao.valor })}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all ${
+                    form.modoPartes === opcao.valor
+                      ? 'bg-elo-gradient text-white shadow-md'
+                      : 'text-ink-secondary hover:text-ink-primary'
+                  }`}
+                >
+                  {opcao.rotulo}
+                </button>
+              ))}
+            </div>
+
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_400px]">
               <div className="flex flex-col gap-6">
                 <FilamentoSection data={form} onChange={setForm} />
+                {form.modoPartes && (
+                  <PartesSection data={form} onChange={setForm} resultadoPartes={results.partes} />
+                )}
                 <EnergiaSection data={form} onChange={setForm} />
                 <CustosAdicionaisSection data={form} onChange={setForm} />
 
@@ -193,7 +189,9 @@ export default function App() {
               <ResultadoSection
                 results={results}
                 margem={margem}
-                onMargemChange={setMargem}
+                onMargemChange={handleMargemChange}
+                precoManual={precoManual}
+                onPrecoManualChange={setPrecoManual}
                 hasError={results.hasError}
               />
             </div>

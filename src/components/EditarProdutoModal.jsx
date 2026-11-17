@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, ImagePlus, Save, Trash2, Loader2, AlertCircle } from 'lucide-react'
 import { comprimirImagem } from '../utils/image.js'
+import { formatBRL, formatNumber } from '../utils/format.js'
 import CategoriaSelect from './ui/CategoriaSelect.jsx'
+import MedidasField from './ui/MedidasField.jsx'
+import { medidasVazias, medidasDoProduto, medidasParaApi, medidasValidas } from '../utils/medidas.js'
 
 export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
   const [nome, setNome] = useState('')
@@ -9,6 +12,7 @@ export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
   const [precoVenda, setPrecoVenda] = useState('')
   const [categoria, setCategoria] = useState('')
   const [foto, setFoto] = useState(null)
+  const [medidas, setMedidas] = useState(medidasVazias)
   const [processandoFoto, setProcessandoFoto] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -21,6 +25,7 @@ export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
       setPrecoVenda(String(produto.precoVenda ?? 0).replace('.', ','))
       setCategoria(produto.categoria ?? '')
       setFoto(produto.foto ?? null)
+      setMedidas(medidasDoProduto(produto))
       setErro('')
     }
   }, [produto])
@@ -30,7 +35,12 @@ export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
   const custoNumero = parseFloat(String(custoUnitario).replace(',', '.'))
   const precoNumero = parseFloat(String(precoVenda).replace(',', '.'))
   const podeSalvar =
-    nome.trim().length > 0 && !isNaN(custoNumero) && !isNaN(precoNumero) && !processandoFoto && !salvando
+    nome.trim().length > 0 &&
+    !isNaN(custoNumero) &&
+    !isNaN(precoNumero) &&
+    medidasValidas(medidas) &&
+    !processandoFoto &&
+    !salvando
 
   async function handleFotoChange(e) {
     const file = e.target.files?.[0]
@@ -59,6 +69,7 @@ export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
         precoVenda: precoNumero,
         foto,
         categoria,
+        ...medidasParaApi(medidas),
       })
     } catch (err) {
       setErro(err.message || 'Não foi possível salvar as alterações. Tente novamente.')
@@ -69,7 +80,7 @@ export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-elo-border bg-elo-card p-6 shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl border border-elo-border bg-elo-card p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink-primary">Editar produto</h2>
           <button
@@ -127,6 +138,28 @@ export default function EditarProdutoModal({ open, produto, onClose, onSave }) {
             <span className="text-[13px] font-medium text-ink-secondary">Categoria</span>
             <CategoriaSelect value={categoria} onChange={setCategoria} />
           </label>
+
+          <MedidasField value={medidas} onChange={setMedidas} />
+
+          {produto.partes?.length > 0 && (
+            <div className="rounded-xl border border-elo-border bg-surface-subtle p-3 text-xs text-ink-secondary">
+              <p className="mb-1.5 font-semibold text-ink-primary">Partes do objeto ({produto.partes.length})</p>
+              <ul className="flex flex-col gap-1">
+                {produto.partes.map((p, i) => (
+                  <li key={i} className="flex justify-between gap-2">
+                    <span className="truncate">
+                      {p.nome}
+                      {p.quantidade > 1 && ` ×${p.quantidade}`} · {formatNumber(p.gramas, 0)} g
+                    </span>
+                    <span className="shrink-0 font-medium text-ink-primary">{formatBRL(p.precoUnitario)}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] text-ink-muted">
+                As partes vêm da calculadora. Para alterá-las, registre o produto de novo pela calculadora.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-ink-secondary">Foto do produto</span>

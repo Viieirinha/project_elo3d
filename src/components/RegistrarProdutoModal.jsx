@@ -1,14 +1,17 @@
 import { useRef, useState } from 'react'
 import { X, ImagePlus, PackagePlus, Trash2, Loader2, AlertCircle } from 'lucide-react'
-import { formatBRL } from '../utils/format.js'
+import { formatBRL, formatNumber } from '../utils/format.js'
 import { comprimirImagem } from '../utils/image.js'
 import CategoriaSelect from './ui/CategoriaSelect.jsx'
+import MedidasField from './ui/MedidasField.jsx'
+import { medidasVazias, medidasParaApi, medidasValidas } from '../utils/medidas.js'
 
-export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnitario, precoVenda }) {
+export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnitario, precoVenda, partes }) {
   const [nome, setNome] = useState('')
   const [quantidade, setQuantidade] = useState('1')
   const [categoria, setCategoria] = useState('')
   const [foto, setFoto] = useState(null)
+  const [medidas, setMedidas] = useState(medidasVazias)
   const [processandoFoto, setProcessandoFoto] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
@@ -17,7 +20,8 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
   if (!open) return null
 
   const quantidadeNumero = parseInt(quantidade, 10)
-  const podeSalvar = nome.trim().length > 0 && quantidadeNumero > 0 && !processandoFoto && !salvando
+  const podeSalvar =
+    nome.trim().length > 0 && quantidadeNumero > 0 && medidasValidas(medidas) && !processandoFoto && !salvando
 
   async function handleFotoChange(e) {
     const file = e.target.files?.[0]
@@ -47,11 +51,24 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
         custoUnitario,
         precoVenda,
         categoria,
+        ...medidasParaApi(medidas),
+        ...(partes?.length
+          ? {
+              partes: partes.map((p) => ({
+                nome: p.nome,
+                quantidade: p.quantidade,
+                gramas: p.gramas,
+                custoUnitario: p.custoUnitario,
+                precoUnitario: p.precoUnitario,
+              })),
+            }
+          : {}),
       })
       setNome('')
       setQuantidade('1')
       setCategoria('')
       setFoto(null)
+      setMedidas(medidasVazias())
     } catch (err) {
       setErro(err.message || 'Não foi possível salvar o produto. Tente novamente.')
     } finally {
@@ -61,7 +78,7 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-elo-border bg-elo-card p-6 shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl border border-elo-border bg-elo-card p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-lg font-bold text-ink-primary">Registrar produto</h2>
           <button
@@ -102,6 +119,8 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
             <span className="text-[13px] font-medium text-ink-secondary">Categoria</span>
             <CategoriaSelect value={categoria} onChange={setCategoria} />
           </label>
+
+          <MedidasField value={medidas} onChange={setMedidas} />
 
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-medium text-ink-secondary">Foto do produto (opcional)</span>
@@ -145,9 +164,26 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
             )}
           </div>
 
+          {partes?.length > 0 && (
+            <div className="rounded-xl border border-elo-border bg-surface-subtle p-3 text-xs text-ink-secondary">
+              <p className="mb-1.5 font-semibold text-ink-primary">Partes salvas junto ({partes.length})</p>
+              <ul className="flex flex-col gap-1">
+                {partes.map((p) => (
+                  <li key={p.id} className="flex justify-between gap-2">
+                    <span className="truncate">
+                      {p.nome}
+                      {p.quantidade > 1 && ` ×${p.quantidade}`} · {formatNumber(p.gramas, 0)} g
+                    </span>
+                    <span className="shrink-0 font-medium text-ink-primary">{formatBRL(p.precoUnitario)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div className="flex items-center justify-between rounded-xl bg-surface-hover px-4 py-3 text-xs text-ink-secondary">
-            <span>Custo / preço sugerido salvos junto</span>
-            <span className="font-semibold text-ink-primary">
+            <span>Custo · preço salvos junto</span>
+            <span className="whitespace-nowrap font-semibold text-ink-primary">
               {formatBRL(custoUnitario)} · {formatBRL(precoVenda)}
             </span>
           </div>

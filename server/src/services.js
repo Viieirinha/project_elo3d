@@ -16,11 +16,40 @@ export function validarId(id) {
 }
 
 export function numero(valor, campo, { min = 0, inteiro = false } = {}) {
-  const n = typeof valor === 'number' ? valor : parseFloat(valor)
+  // Texto aceita vírgula decimal ("30,5"); lixo como "12abc" ou vazio é rejeitado (não vira 12 nem 0).
+  const texto = typeof valor === 'string' ? valor.trim().replace(',', '.') : ''
+  const n = typeof valor === 'number' ? valor : texto === '' ? NaN : Number(texto)
   if (!Number.isFinite(n) || n < min || (inteiro && !Number.isInteger(n))) {
     throw new HttpError(400, `Valor inválido para ${campo}.`)
   }
   return n
+}
+
+// Medidas: cada dimensão é opcional (null = não informada); a unidade vale para as três.
+function lerMedidas(dados) {
+  const saida = {}
+  for (const campo of ['altura', 'largura', 'profundidade']) {
+    const v = dados[campo]
+    if (v === undefined) continue
+    saida[campo] = v === null || v === '' ? null : numero(v, campo)
+  }
+  if (dados.unidadeMedida !== undefined) {
+    if (!['cm', 'm'].includes(dados.unidadeMedida)) throw new HttpError(400, 'Unidade de medida inválida.')
+    saida.unidadeMedida = dados.unidadeMedida
+  }
+  return saida
+}
+
+function lerPartes(partes) {
+  if (partes === undefined || partes === null) return partes
+  if (!Array.isArray(partes) || partes.length > 50) throw new HttpError(400, 'Partes inválidas.')
+  return partes.map((p, i) => ({
+    nome: String(p.nome ?? '').trim().slice(0, 80) || `Parte ${i + 1}`,
+    quantidade: numero(p.quantidade ?? 1, 'quantidade da parte', { min: 1, inteiro: true }),
+    gramas: numero(p.gramas ?? 0, 'gramas da parte'),
+    custoUnitario: numero(p.custoUnitario ?? 0, 'custo da parte'),
+    precoUnitario: numero(p.precoUnitario ?? 0, 'preço da parte'),
+  }))
 }
 
 // ---------- categorias ----------
@@ -106,6 +135,15 @@ export async function registrarProduto(c, dados, autor) {
   const preco = numero(dados.precoVenda, 'preço de venda')
   const categoria = dados.categoria?.trim() || ''
   const foto = dados.foto || null
+  const medidas = lerMedidas(dados)
+  const partes = lerPartes(dados.partes)
+  const partesJson = partes ? JSON.stringify(partes) : null
+  const medidasParams = [
+    medidas.altura ?? null,
+    medidas.largura ?? null,
+    medidas.profundidade ?? null,
+    medidas.unidadeMedida ?? null,
+  ]
 
   const existente = (
     await c.query('SELECT id FROM produtos WHERE lower(btrim(nome)) = lower($1) FOR UPDATE', [nome])
@@ -116,16 +154,21 @@ export async function registrarProduto(c, dados, autor) {
     await c.query(
       `UPDATE produtos SET custo_unitario = $2, preco_venda = $3,
          categoria = CASE WHEN $4 <> '' THEN $4 ELSE categoria END,
-         foto = COALESCE($5, foto), atualizado_em = now(), atualizado_por = $6
+         foto = COALESCE($5, foto), atualizado_em = now(), atualizado_por = $6,
+         partes = COALESCE($7::jsonb, partes),
+         altura = COALESCE($8, altura), largura = COALESCE($9, largura),
+         profundidade = COALESCE($10, profundidade),
+         unidade_medida = COALESCE($11, unidade_medida)
        WHERE id = $1`,
-      [existente.id, custo, preco, categoria, foto, autor]
+      [existente.id, custo, preco, categoria, foto, autor, partesJson, ...medidasParams]
     )
     produtoId = existente.id
   } else {
     const ins = await c.query(
-      `INSERT INTO produtos (nome, categoria, quantidade, foto, custo_unitario, preco_venda, criado_por)
-       VALUES ($1, $2, 0, $3, $4, $5, $6) RETURNING id`,
-      [nome, categoria, foto, custo, preco, autor]
+      `INSERT INTO produtos (nome, categoria, quantidade, foto, custo_unitario, preco_venda, criado_por,
+         partes, altura, largura, profundidade, unidade_medida)
+       VALUES ($1, $2, 0, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, COALESCE($11, 'cm')) RETURNING id`,
+      [nome, categoria, foto, custo, preco, autor, partesJson, ...medidasParams]
     )
     produtoId = ins.rows[0].id
   }
@@ -158,6 +201,20 @@ export async function atualizarProduto(c, id, dados, autor) {
     params.push(categoria)
     sets.push(`categoria = $${params.length}`)
     if (categoria) await adicionarCategoria(c, categoria)
+  }
+  // Medidas aceitam null para limpar um valor; partes só mudam se vierem no corpo.
+  const medidas = lerMedidas(dados)
+  const colunas = { altura: 'altura', largura: 'largura', profundidade: 'profundidade', unidadeMedida: 'unidade_medida' }
+  for (const [chave, coluna] of Object.entries(colunas)) {
+    if (medidas[chave] !== undefined) {
+      params.push(medidas[chave])
+      sets.push(`${coluna} = $${params.length}`)
+    }
+  }
+  const partes = lerPartes(dados.partes)
+  if (partes !== undefined) {
+    params.push(partes ? JSON.stringify(partes) : null)
+    sets.push(`partes = $${params.length}::jsonb`)
   }
   await c.query(`UPDATE produtos SET ${sets.join(', ')} WHERE id = $1`, params)
   return getProdutos(c)
