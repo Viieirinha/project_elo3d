@@ -1,0 +1,7 @@
+[Unit]
+Description=Backup do banco ELO 3D
+After=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/elo3d-backup

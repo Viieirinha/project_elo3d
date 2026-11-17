@@ -4,3 +4,7 @@ dev-dist
 .DS_Store
 
 .vercel
+server/node_modules
+.env
+*.env
+dump*.json

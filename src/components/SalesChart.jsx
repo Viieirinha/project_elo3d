@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { formatBRL } from '../utils/format.js'
+import Segmented from './ui/Segmented.jsx'
 
 const GRANULARIDADES = [
   { id: 'dia', label: 'Dia', buckets: 14 },
@@ -64,69 +65,78 @@ function construirBuckets(vendas, granularidadeId, campo) {
   return buckets
 }
 
+const compacto = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
+
 export default function SalesChart({ vendas, campo = 'valorTotal', titulo = 'Faturamento por período' }) {
   const [granularidade, setGranularidade] = useState('dia')
-  const [hover, setHover] = useState(null)
+  const [ativo, setAtivo] = useState(null)
 
   const buckets = useMemo(() => construirBuckets(vendas, granularidade, campo), [vendas, granularidade, campo])
   const maxValor = Math.max(1, ...buckets.map((b) => b.valor))
+  const totalPeriodo = buckets.reduce((acc, b) => acc + b.valor, 0)
   const total = buckets.length
   const mostrarTodosLabels = total <= 8
+  const opcoes = GRANULARIDADES.map((g) => ({ valor: g.id, rotulo: g.label }))
 
   return (
-    <section className="rounded-2xl border border-elo-border bg-elo-card/80 p-5 shadow-lg shadow-black/20 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-[15px] font-semibold text-ink-primary">{titulo}</h2>
-        <div className="flex items-center gap-1 rounded-full border border-elo-border bg-surface-subtle p-1">
-          {GRANULARIDADES.map((g) => (
-            <button
-              key={g.id}
-              type="button"
-              onClick={() => setGranularidade(g.id)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                granularidade === g.id ? 'bg-elo-gradient text-white' : 'text-ink-secondary hover:text-ink-primary'
-              }`}
-            >
-              {g.label}
-            </button>
-          ))}
+    <section className="card p-5 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-[15px] font-semibold text-ink-primary">{titulo}</h2>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            Total no gráfico: <span className="font-semibold tabular-nums text-ink-secondary">{formatBRL(totalPeriodo)}</span>
+          </p>
         </div>
+        <Segmented rotulo="Agrupar por" tamanho="sm" opcoes={opcoes} valor={granularidade} onChange={setGranularidade} />
       </div>
 
       {vendas.length === 0 ? (
         <p className="text-sm text-ink-muted">Sem vendas registradas ainda para exibir no gráfico.</p>
       ) : (
-        <div className="relative">
-          {hover !== null && (
+        <div className="relative pl-12">
+          {/* linhas de grade e valores do eixo */}
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-44">
+            {[1, 0.5, 0].map((f) => (
+              <div key={f} className="absolute inset-x-0 flex items-center gap-2" style={{ top: `${(1 - f) * 100}%`, transform: 'translateY(-50%)' }}>
+                <span className="w-10 shrink-0 text-right text-[10px] tabular-nums text-ink-muted">{compacto.format(maxValor * f)}</span>
+                <span className="h-px flex-1 bg-elo-border" />
+              </div>
+            ))}
+          </div>
+
+          {ativo !== null && (
             <div
-              className="pointer-events-none absolute -top-1 z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-elo-border bg-elo-card px-2.5 py-1.5 text-xs shadow-xl"
-              style={{ left: `${((hover + 0.5) / total) * 100}%` }}
+              role="status"
+              className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-elo-border bg-elo-raised px-2.5 py-1.5 text-xs shadow-pop"
+              style={{ left: `calc(3rem + (100% - 3rem) * ${(ativo + 0.5) / total})`, top: `${(1 - buckets[ativo].valor / maxValor) * 11}rem` }}
             >
-              <p className="font-semibold text-ink-primary">{formatBRL(buckets[hover].valor)}</p>
-              <p className="text-ink-muted">{buckets[hover].label}</p>
+              <p className="font-semibold tabular-nums text-ink-primary">{formatBRL(buckets[ativo].valor)}</p>
+              <p className="text-ink-muted">{buckets[ativo].label}</p>
             </div>
           )}
-          <div className="flex h-40 items-end gap-1.5">
-            {buckets.map((b, i) => {
-              const alturaPct = (b.valor / maxValor) * 100
-              return (
+
+          <div className="relative flex h-44 items-end gap-1.5">
+            {buckets.map((b, i) => (
+              <button
+                key={i}
+                type="button"
+                aria-label={`${b.label}: ${formatBRL(b.valor)}`}
+                onMouseEnter={() => setAtivo(i)}
+                onMouseLeave={() => setAtivo(null)}
+                onFocus={() => setAtivo(i)}
+                onBlur={() => setAtivo(null)}
+                className="group flex h-full flex-1 flex-col justify-end rounded-md outline-none focus-visible:ring-2 focus-visible:ring-elo-blue"
+              >
                 <div
-                  key={i}
-                  className="group flex h-full flex-1 flex-col items-center justify-end"
-                  onMouseEnter={() => setHover(i)}
-                  onMouseLeave={() => setHover(null)}
-                >
-                  <div
-                    className={`w-full rounded-t transition-colors ${
-                      b.valor > 0 ? 'bg-[#5D5FEF] group-hover:bg-[#7B7DFF]' : 'bg-elo-border'
-                    }`}
-                    style={{ height: `${b.valor > 0 ? Math.max(alturaPct, 3) : 2}%` }}
-                  />
-                </div>
-              )
-            })}
+                  className={`w-full rounded-t-md transition-all duration-150 ${
+                    b.valor > 0 ? 'bg-gradient-to-t from-elo-blue to-elo-violet group-hover:brightness-125 group-focus-visible:brightness-125' : 'bg-elo-border'
+                  }`}
+                  style={{ height: b.valor > 0 ? `${Math.max((b.valor / maxValor) * 100, 3)}%` : '2px' }}
+                />
+              </button>
+            ))}
           </div>
-          <div className="mt-2 flex gap-1.5 border-t border-elo-border/60 pt-2">
+          <div className="mt-2 flex gap-1.5">
             {buckets.map((b, i) => (
               <div key={i} className="flex-1 text-center text-[10px] text-ink-muted">
                 {mostrarTodosLabels || i === 0 || i === total - 1 ? b.label : ''}

@@ -23,18 +23,13 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
-        navigateFallbackDenylist: [/^\/__/],
+        // Ícones PNG (manifest/favicon) não precisam ficar em cache offline: só o código, estilos e o logo leve.
+        globPatterns: ['**/*.{js,css,html,svg,ico,webp,woff2}'],
+        navigateFallbackDenylist: [/^\/__/, /^\/api\//],
       },
     }),
   ],
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-        },
-      },
-    },
+  server: {
+    proxy: { '/api': 'http://127.0.0.1:3001' },
   },
 })

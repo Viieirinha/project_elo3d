@@ -2,17 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------- Fontes (embutidas no app; sem depender de serviços externos) ---------- */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Space Grotesk Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300 700;
+  src: url('../node_modules/@fontsource-variable/space-grotesk/files/space-grotesk-latin-wght-normal.woff2')
+    format('woff2-variations');
+}
+
+/* ---------- Tokens: tema escuro (padrão) ---------- */
 :root {
-  --elo-bg-rgb: 13 14 18;
-  --elo-panel-rgb: 20 21 26;
-  --elo-card-rgb: 23 24 31;
-  --elo-border-rgb: 36 37 45;
-  --elo-border-strong-rgb: 82 82 91;
-  --ink-primary: #f4f4f6;
-  --ink-secondary: #a1a1aa;
-  --ink-muted: #71717a;
-  --surface-subtle: rgba(0, 0, 0, 0.2);
-  --surface-hover: rgba(255, 255, 255, 0.05);
+  --elo-bg-rgb: 10 11 15;
+  --elo-panel-rgb: 15 16 22;
+  --elo-card-rgb: 20 21 28;
+  --elo-raised-rgb: 29 30 40;
+  --elo-border-rgb: 39 41 54;
+  --elo-border-strong-rgb: 70 72 92;
+  --ink-primary: #f2f3f8;
+  --ink-secondary: #a8aabb;
+  --ink-muted: #767889;
+  --surface-subtle: rgba(255, 255, 255, 0.035);
+  --surface-hover: rgba(255, 255, 255, 0.065);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 14px 32px -18px rgba(0, 0, 0, 0.65);
+  --shadow-pop: 0 24px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --glow: rgba(93, 95, 239, 0.12);
+  --ring: rgba(112, 114, 255, 0.55);
   color-scheme: dark;
 
   /* paleta categórica validada (contraste + daltonismo) para gráficos */
@@ -24,17 +47,23 @@
   --chart-6: #008300;
 }
 
+/* ---------- Tokens: tema claro ---------- */
 :root[data-theme='light'] {
-  --elo-bg-rgb: 247 247 251;
+  --elo-bg-rgb: 245 246 250;
   --elo-panel-rgb: 255 255 255;
   --elo-card-rgb: 255 255 255;
-  --elo-border-rgb: 228 228 234;
-  --elo-border-strong-rgb: 161 161 170;
-  --ink-primary: #16161a;
-  --ink-secondary: #52525b;
-  --ink-muted: #8b8b96;
-  --surface-subtle: rgba(0, 0, 0, 0.035);
-  --surface-hover: rgba(0, 0, 0, 0.04);
+  --elo-raised-rgb: 240 241 247;
+  --elo-border-rgb: 227 229 238;
+  --elo-border-strong-rgb: 188 191 206;
+  --ink-primary: #14151c;
+  --ink-secondary: #4b4e60;
+  --ink-muted: #7d8095;
+  --surface-subtle: rgba(20, 21, 40, 0.035);
+  --surface-hover: rgba(20, 21, 40, 0.055);
+  --shadow-card: 0 1px 2px rgba(20, 21, 40, 0.05), 0 10px 28px -16px rgba(20, 21, 40, 0.16);
+  --shadow-pop: 0 24px 60px -12px rgba(20, 21, 40, 0.25), 0 0 0 1px rgba(20, 21, 40, 0.05);
+  --glow: rgba(93, 95, 239, 0.08);
+  --ring: rgba(93, 95, 239, 0.45);
   color-scheme: light;
 
   --chart-1: #2a78d6;
@@ -48,7 +77,7 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 html,
@@ -59,8 +88,10 @@ body {
 body {
   background-color: rgb(var(--elo-bg-rgb));
   color: var(--ink-primary);
-  font-family: 'Sora', sans-serif;
+  font-family: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -68,35 +99,42 @@ body {
   background: rgba(93, 95, 239, 0.35);
 }
 
-/* subtle scrollbar to match dark theme */
+/* foco visível e consistente para quem navega por teclado */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+}
+
+/* scrollbar discreta */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--elo-border-strong-rgb)) transparent;
+}
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
-::-webkit-scrollbar-track {
-  background: rgb(var(--elo-bg-rgb));
-}
 ::-webkit-scrollbar-thumb {
   background: rgb(var(--elo-border-rgb));
+  border: 2px solid transparent;
+  background-clip: padding-box;
   border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--elo-border-strong-rgb));
+  background-clip: padding-box;
 }
 
 select {
   color-scheme: inherit;
 }
-
 select option {
   background-color: rgb(var(--elo-card-rgb));
-  color: var(--ink-primary);
-}
-
-select option:checked,
-select option:hover,
-select option:focus {
-  background-color: rgb(var(--elo-border-rgb));
   color: var(--ink-primary);
 }
 
@@ -109,10 +147,11 @@ input[type='number'] {
   -moz-appearance: textfield;
 }
 
+/* controle deslizante da margem */
 input[type='range'] {
   -webkit-appearance: none;
   appearance: none;
-  height: 8px;
+  height: 6px;
   border-radius: 999px;
   background: linear-gradient(115deg, #4b3fff 0%, #e63fe6 35%, #ff3fa0 55%, #f5c518 80%, #6fe63f 100%);
   outline: none;
@@ -123,42 +162,149 @@ input[type='range']::-webkit-slider-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #fff;
   border: 3px solid #5d5fef;
-  box-shadow: 0 0 12px rgba(93, 95, 239, 0.7);
+  box-shadow: 0 2px 8px rgba(93, 95, 239, 0.55);
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 input[type='range']::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
+  transform: scale(1.12);
 }
 input[type='range']::-moz-range-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #ffffff;
+  background: #fff;
   border: 3px solid #5d5fef;
-  box-shadow: 0 0 12px rgba(93, 95, 239, 0.7);
+  box-shadow: 0 2px 8px rgba(93, 95, 239, 0.55);
   cursor: pointer;
 }
+input[type='range']:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px var(--ring);
+}
 
+/* ---------- Movimento ---------- */
 @keyframes fade-in {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
 .animate-fade-in {
-  animation: fade-in 0.25s ease-out;
+  animation: fade-in 0.28s ease-out both;
+}
+.animate-overlay-in {
+  animation: overlay-in 0.18s ease-out both;
+}
+.animate-sheet-in {
+  animation: sheet-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.animate-toast-in {
+  animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Marca ---------- */
 .gradient-text {
-  background: linear-gradient(115deg, #4b3fff 0%, #e63fe6 35%, #ff3fa0 55%, #f5c518 80%, #6fe63f 100%);
+  background: linear-gradient(115deg, #5d5fef 0%, #c43fe6 40%, #ff3fa0 70%, #f5a418 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-subtle) 25%,
+    var(--surface-hover) 37%,
+    var(--surface-subtle) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* ---------- Componentes reutilizáveis ---------- */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-elo-border bg-elo-card;
+    box-shadow: var(--shadow-card);
+  }
+
+  /* campo de formulário (input/select/textarea) */
+  .field {
+    @apply w-full rounded-xl border border-elo-border bg-surface-subtle px-3.5 py-2.5 text-[15px] font-medium text-ink-primary outline-none transition-[border-color,box-shadow] duration-150;
+  }
+  .field::placeholder {
+    color: var(--ink-muted);
+    font-weight: 400;
+  }
+  .field:hover {
+    border-color: rgb(var(--elo-border-strong-rgb));
+  }
+  .field:focus,
+  .field-wrap:focus-within {
+    border-color: #5d5fef;
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+  .field-wrap {
+    @apply flex items-center rounded-xl border border-elo-border bg-surface-subtle transition-[border-color,box-shadow] duration-150;
+  }
+  .field-wrap:hover {
+    border-color: rgb(var(--elo-border-strong-rgb));
+  }
+  .field-wrap:focus-within {
+    border-color: #5d5fef;
+  }
+
+  .label {
+    @apply text-[13px] font-medium text-ink-secondary;
+  }
 }

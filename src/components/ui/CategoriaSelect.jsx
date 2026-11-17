@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { getCategorias } from '../../utils/categorias.js'
+import { Input, Select } from './Field.jsx'
+import { IconButton } from './Button.jsx'
 
 const NOVA = '__nova__'
 
@@ -9,10 +11,10 @@ export default function CategoriaSelect({ value, onChange }) {
   const [modoNova, setModoNova] = useState(false)
 
   useEffect(() => {
-    getCategorias().then(setCategorias)
+    getCategorias().then(setCategorias).catch(() => {})
   }, [])
 
-  function handleSelectChange(e) {
+  function aoMudar(e) {
     if (e.target.value === NOVA) {
       setModoNova(true)
       onChange('')
@@ -24,35 +26,21 @@ export default function CategoriaSelect({ value, onChange }) {
   if (modoNova) {
     return (
       <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Nome da nova categoria"
-          autoFocus
-          className="flex-1 rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
-        />
-        <button
-          type="button"
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="Nome da nova categoria" autoFocus />
+        <IconButton
+          icone={X}
+          rotulo="Cancelar nova categoria"
           onClick={() => {
             setModoNova(false)
             onChange('')
           }}
-          className="rounded-full p-2 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink-primary"
-          title="Cancelar"
-        >
-          <X size={16} />
-        </button>
+        />
       </div>
     )
   }
 
   return (
-    <select
-      value={value}
-      onChange={handleSelectChange}
-      className="rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
-    >
+    <Select value={value} onChange={aoMudar}>
       <option value="">Sem categoria</option>
       {categorias.map((c) => (
         <option key={c} value={c}>
@@ -60,6 +48,6 @@ export default function CategoriaSelect({ value, onChange }) {
         </option>
       ))}
       <option value={NOVA}>+ Nova categoria</option>
-    </select>
+    </Select>
   )
 }

@@ -45,61 +45,57 @@ export default function CategoryDonutChart({ vendas, produtos }) {
     return `conic-gradient(${stops.join(', ')})`
   }, [fatias])
 
-  if (fatias.length === 0) {
-    return (
-      <section className="rounded-2xl border border-elo-border bg-elo-card/80 p-5 shadow-lg shadow-black/20 sm:p-6">
-        <h2 className="mb-4 font-display text-[15px] font-semibold text-ink-primary">Vendas por categoria</h2>
-        <p className="text-sm text-ink-muted">Sem vendas registradas ainda.</p>
-      </section>
-    )
-  }
+  const totalGeral = fatias.reduce((acc, f) => acc + f.valor, 0)
 
   return (
-    <section className="rounded-2xl border border-elo-border bg-elo-card/80 p-5 shadow-lg shadow-black/20 sm:p-6">
+    <section className="card p-5 sm:p-6">
       <h2 className="mb-4 font-display text-[15px] font-semibold text-ink-primary">Vendas por categoria</h2>
-      <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
-        <div className="relative h-40 w-40 shrink-0">
-          <div className="h-full w-full rounded-full" style={{ background: gradiente }} />
-          <div className="absolute inset-[14%] flex flex-col items-center justify-center rounded-full bg-elo-card text-center">
-            {hover !== null ? (
-              <>
-                <span className="text-[11px] text-ink-muted">{fatias[hover].categoria}</span>
-                <span className="font-display text-sm font-bold text-ink-primary">
-                  {fatias[hover].pct.toFixed(0)}%
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="text-[11px] text-ink-muted">Total</span>
-                <span className="font-display text-sm font-bold text-ink-primary">
-                  {formatBRL(fatias.reduce((acc, f) => acc + f.valor, 0))}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex w-full flex-col gap-2">
-          {fatias.map((f, i) => (
-            <div
-              key={f.categoria}
-              className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-sm transition-colors"
-              style={{ backgroundColor: hover === i ? 'var(--surface-hover)' : 'transparent' }}
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover(null)}
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.cor }} />
-                <span className="truncate font-medium text-ink-primary">{f.categoria}</span>
-              </div>
-              <div className="flex shrink-0 items-center gap-3 text-xs">
-                <span className="text-ink-muted">{formatBRL(f.valor)}</span>
-                <span className="w-10 text-right font-semibold text-ink-secondary">{f.pct.toFixed(0)}%</span>
-              </div>
+      {fatias.length === 0 ? (
+        <p className="text-sm text-ink-muted">Sem vendas registradas ainda.</p>
+      ) : (
+        <div className="flex flex-col items-center gap-7 sm:flex-row">
+          <div className="relative h-44 w-44 shrink-0" role="img" aria-label={`Vendas por categoria, total ${formatBRL(totalGeral)}`}>
+            <div className="h-full w-full rounded-full" style={{ background: gradiente }} />
+            <div className="absolute inset-[16%] flex flex-col items-center justify-center rounded-full bg-elo-card text-center">
+              {hover !== null ? (
+                <>
+                  <span className="max-w-[80%] truncate text-[11px] text-ink-muted">{fatias[hover].categoria}</span>
+                  <span className="font-display text-lg font-semibold tabular-nums text-ink-primary">{fatias[hover].pct.toFixed(0)}%</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-[11px] text-ink-muted">Total</span>
+                  <span className="font-display text-sm font-semibold tabular-nums text-ink-primary">{formatBRL(totalGeral)}</span>
+                </>
+              )}
             </div>
-          ))}
+          </div>
+
+          <ul className="flex w-full flex-col gap-1">
+            {fatias.map((f, i) => (
+              <li
+                key={f.categoria}
+                tabIndex={0}
+                className="flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-elo-blue"
+                style={{ backgroundColor: hover === i ? 'var(--surface-hover)' : 'transparent' }}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}
+                onFocus={() => setHover(i)}
+                onBlur={() => setHover(null)}
+              >
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: f.cor }} />
+                  <span className="truncate font-medium text-ink-primary">{f.categoria}</span>
+                </div>
+                <div className="flex shrink-0 items-center gap-3 text-xs tabular-nums">
+                  <span className="text-ink-muted">{formatBRL(f.valor)}</span>
+                  <span className="w-10 text-right font-semibold text-ink-secondary">{f.pct.toFixed(0)}%</span>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      )}
     </section>
   )
 }
