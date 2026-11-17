@@ -1,121 +1,148 @@
 import { useEffect, useState } from 'react'
-import { Settings, AlertTriangle, Tag, Plus, X } from 'lucide-react'
+import { AlertTriangle, Tag, Plus, X, Package, Check } from 'lucide-react'
 import { getEstoqueMinimo, setEstoqueMinimo } from '../utils/config.js'
 import { getCategorias, adicionarCategoria, removerCategoria } from '../utils/categorias.js'
+import { useCarregar } from '../utils/useCarregar.js'
+import PageHeader from './ui/PageHeader.jsx'
+import Button from './ui/Button.jsx'
+import Skeleton from './ui/Skeleton.jsx'
+import { ErroCarregamento } from './ui/EmptyState.jsx'
+import { Campo, Input } from './ui/Field.jsx'
+import { useToast } from './ui/Toast.jsx'
+
+function Secao({ icone, titulo, subtitulo, children }) {
+  return (
+    <section className="card p-5 sm:p-6">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-elo-blue/10 text-elo-blue">{icone}</span>
+        <div>
+          <h2 className="font-display text-[15px] font-semibold text-ink-primary">{titulo}</h2>
+          {subtitulo && <p className="text-xs text-ink-muted">{subtitulo}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
 
 export default function ConfiguracoesView() {
-  const [estoqueMinimo, setEstoqueMinimoState] = useState(5)
-  const [categorias, setCategorias] = useState([])
+  const toast = useToast()
+  const minimoReq = useCarregar(getEstoqueMinimo)
+  const categoriasReq = useCarregar(getCategorias)
+  const [minimo, setMinimo] = useState('5')
+  const [minimoSalvo, setMinimoSalvo] = useState(null)
   const [novaCategoria, setNovaCategoria] = useState('')
 
   useEffect(() => {
-    getEstoqueMinimo().then(setEstoqueMinimoState)
-    getCategorias().then(setCategorias)
-  }, [])
+    if (minimoReq.dados !== null) {
+      setMinimo(String(minimoReq.dados))
+      setMinimoSalvo(minimoReq.dados)
+    }
+  }, [minimoReq.dados])
 
-  function handleAlterar(valor) {
-    const numero = parseInt(valor, 10)
-    const seguro = isNaN(numero) ? 0 : Math.max(0, numero)
-    setEstoqueMinimoState(seguro)
-    setEstoqueMinimo(seguro)
+  const minimoNumero = parseInt(minimo, 10)
+  const minimoValido = !isNaN(minimoNumero) && minimoNumero >= 0
+  const alterado = minimoValido && minimoNumero !== minimoSalvo
+
+  async function salvarMinimo(e) {
+    e.preventDefault()
+    if (!alterado) return
+    try {
+      await setEstoqueMinimo(minimoNumero)
+      setMinimoSalvo(minimoNumero)
+      toast.sucesso('Estoque mínimo salvo.')
+    } catch (err) {
+      toast.erro(err.message || 'Não foi possível salvar.')
+    }
   }
 
-  async function handleAdicionarCategoria(e) {
+  async function adicionar(e) {
     e.preventDefault()
     if (!novaCategoria.trim()) return
-    setCategorias(await adicionarCategoria(novaCategoria))
-    setNovaCategoria('')
+    try {
+      categoriasReq.setDados(await adicionarCategoria(novaCategoria))
+      setNovaCategoria('')
+    } catch (err) {
+      toast.erro(err.message || 'Não foi possível adicionar a categoria.')
+    }
   }
 
-  async function handleRemoverCategoria(nome) {
-    setCategorias(await removerCategoria(nome))
+  async function remover(nome) {
+    try {
+      categoriasReq.setDados(await removerCategoria(nome))
+    } catch (err) {
+      toast.erro(err.message || 'Não foi possível remover a categoria.')
+    }
   }
+
+  const categorias = categoriasReq.dados ?? []
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-6">
-        <h1 className="font-display text-xl font-bold text-ink-primary sm:text-2xl">Configurações</h1>
-        <p className="mt-1 text-sm text-ink-muted">Preferências gerais do sistema.</p>
-      </div>
+      <PageHeader titulo="Configurações" subtitulo="Preferências gerais do sistema." />
 
-      <div className="flex max-w-lg flex-col gap-6">
-        <section className="rounded-2xl border border-elo-border bg-elo-card/80 p-5 shadow-lg shadow-black/20 sm:p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-elo-gradient shadow-md">
-              <Settings size={19} className="text-white" />
-            </div>
-            <h2 className="font-display text-[15px] font-semibold text-ink-primary">Estoque</h2>
-          </div>
+      <div className="flex max-w-xl flex-col gap-6">
+        <Secao icone={<Package size={18} />} titulo="Estoque" subtitulo="Quando o sistema deve avisar que um produto está acabando">
+          {minimoReq.carregando && minimoReq.dados === null ? (
+            <Skeleton className="h-20" />
+          ) : minimoReq.erro && minimoReq.dados === null ? (
+            <ErroCarregamento erro={minimoReq.erro} onTentar={minimoReq.recarregar} />
+          ) : (
+            <form onSubmit={salvarMinimo} className="flex flex-col gap-3">
+              <Campo
+                rotulo="Alertar quando o estoque de um produto for igual ou menor que"
+                dica="Os produtos nesse nível aparecem com aviso de estoque baixo."
+              >
+                <div className="flex items-center gap-2">
+                  <Input className="!w-28" inputMode="numeric" sufixo="un." value={minimo} onChange={(e) => setMinimo(e.target.value.replace(/[^0-9]/g, ''))} />
+                  <Button type="submit" variante={alterado ? 'primary' : 'secondary'} icone={alterado ? undefined : Check} disabled={!alterado}>
+                    {alterado ? 'Salvar' : 'Salvo'}
+                  </Button>
+                </div>
+              </Campo>
+              {!minimoValido && (
+                <p role="alert" className="flex items-center gap-1.5 text-xs font-medium text-red-400">
+                  <AlertTriangle size={13} /> Informe um número de 0 em diante.
+                </p>
+              )}
+            </form>
+          )}
+        </Secao>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink-secondary">
-              <AlertTriangle size={13} />
-              Alertar quando o estoque de um produto for menor que
-            </span>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={estoqueMinimo}
-                onChange={(e) => handleAlterar(e.target.value.replace(/[^0-9]/g, ''))}
-                className="w-24 rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
-              />
-              <span className="text-sm text-ink-muted">unidades</span>
-            </div>
-          </label>
-        </section>
-
-        <section className="rounded-2xl border border-elo-border bg-elo-card/80 p-5 shadow-lg shadow-black/20 sm:p-6">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-elo-green to-elo-blue shadow-md">
-              <Tag size={19} className="text-white" />
-            </div>
-            <div>
-              <h2 className="font-display text-[15px] font-semibold text-ink-primary">Categorias</h2>
-              <p className="text-xs text-ink-muted">Organize produtos de nichos diferentes.</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleAdicionarCategoria} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={novaCategoria}
-              onChange={(e) => setNovaCategoria(e.target.value)}
-              placeholder="Ex: Chaveiros, Miniaturas, Decoração..."
-              className="flex-1 rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
-            />
-            <button
-              type="submit"
-              disabled={!novaCategoria.trim()}
-              className="flex shrink-0 items-center gap-1.5 rounded-xl bg-elo-gradient px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Plus size={16} />
+        <Secao icone={<Tag size={18} />} titulo="Categorias" subtitulo="Organize produtos de nichos diferentes">
+          <form onSubmit={adicionar} className="flex items-center gap-2">
+            <Input aria-label="Nova categoria" value={novaCategoria} onChange={(e) => setNovaCategoria(e.target.value)} placeholder="Ex: Chaveiros, Miniaturas, Decoração..." />
+            <Button type="submit" variante="primary" icone={Plus} disabled={!novaCategoria.trim()}>
               Adicionar
-            </button>
+            </Button>
           </form>
 
-          {categorias.length === 0 ? (
+          {categoriasReq.carregando && !categoriasReq.dados ? (
+            <Skeleton className="mt-4 h-10" />
+          ) : categoriasReq.erro && !categoriasReq.dados ? (
+            <div className="mt-4">
+              <ErroCarregamento erro={categoriasReq.erro} onTentar={categoriasReq.recarregar} />
+            </div>
+          ) : categorias.length === 0 ? (
             <p className="mt-4 text-xs text-ink-muted">Nenhuma categoria cadastrada ainda.</p>
           ) : (
-            <div className="mt-4 flex flex-wrap gap-2">
+            <ul className="mt-4 flex flex-wrap gap-2">
               {categorias.map((c) => (
-                <div
-                  key={c}
-                  className="flex items-center gap-1.5 rounded-full border border-elo-border bg-surface-subtle px-3 py-1.5 text-xs font-medium text-ink-secondary"
-                >
+                <li key={c} className="flex items-center gap-1 rounded-full border border-elo-border bg-surface-subtle py-1 pl-3.5 pr-1.5 text-[13px] font-medium text-ink-secondary">
                   {c}
                   <button
                     type="button"
-                    onClick={() => handleRemoverCategoria(c)}
-                    className="text-ink-muted transition-colors hover:text-red-400"
+                    onClick={() => remover(c)}
+                    aria-label={`Remover categoria ${c}`}
+                    className="flex h-6 w-6 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-red-500/10 hover:text-red-400"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-        </section>
+        </Secao>
       </div>
     </div>
   )

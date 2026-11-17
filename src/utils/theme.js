@@ -11,4 +11,6 @@ export function applyTheme(theme) {
     document.documentElement.removeAttribute('data-theme')
   }
   localStorage.setItem(THEME_KEY, theme)
+  // cor da barra do navegador/PWA acompanha o tema
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f5f6fa' : '#0a0b0f')
 }

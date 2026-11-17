@@ -10,7 +10,15 @@ npm run dev
 ## Logo
 
 - `src/assets/logo.png` — arte completa (anéis + wordmark), fornecida pela marca.
-- `src/assets/logo-mark.png` — recorte quadrado apenas dos anéis, usado no [Header](src/components/Header.jsx) ao lado do texto "ELO 3D".
+- `src/assets/logo-mark.webp` — recorte quadrado dos anéis (192 px, 10 KB), usado no menu e no login ([AppShell](src/components/AppShell.jsx)).
+
+## Interface
+
+- **Design system** em `src/components/ui/` (Button, Field, Modal, Toast, Segmented, Badge, StatCard, ...) e tokens
+  de cor/sombra/tipografia em `src/index.css` (tema claro e escuro). Fontes Inter e Space Grotesk embutidas no app.
+- **Navegação** em `AppShell`: menu lateral no desktop; barra superior + barra inferior (com "Mais") no celular.
+- Telas carregam dados com `useCarregar` (estados de carregando, erro e "tentar novamente"); ações avisam por toast.
+- Modais são acessíveis: foco preso, `Esc` fecha, o foco volta ao botão de origem; no celular viram folha deslizante.
 
 ## Arquitetura
 

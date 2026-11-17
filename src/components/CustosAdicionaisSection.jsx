@@ -4,13 +4,8 @@ import NumberField from './ui/NumberField.jsx'
 
 export default function CustosAdicionaisSection({ data, onChange }) {
   return (
-    <SectionCard
-      icon={<Wrench size={19} className="text-white" />}
-      title="Custos adicionais"
-      subtitle="Desgaste, embalagem e tempo de trabalho"
-      accent="from-elo-green to-elo-blue"
-    >
-      <div className="grid grid-cols-2 gap-4">
+    <SectionCard icon={<Wrench size={18} />} title="Custos adicionais" subtitle="Desgaste, embalagem e tempo de trabalho">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <NumberField
           label="Custo fixo"
           prefix="R$"

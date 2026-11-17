@@ -1,7 +1,11 @@
 import { Boxes, Plus, Trash2 } from 'lucide-react'
 import SectionCard from './ui/SectionCard.jsx'
 import NumberField from './ui/NumberField.jsx'
+import Button, { IconButton } from './ui/Button.jsx'
+import Badge from './ui/Badge.jsx'
+import { Campo, Input, Select } from './ui/Field.jsx'
 import { formatBRL } from '../utils/format.js'
+import { nomeDoFilamento } from './FilamentoSection.jsx'
 
 export function criarParteVazia(filamentoId = '') {
   return {
@@ -15,70 +19,49 @@ export function criarParteVazia(filamentoId = '') {
   }
 }
 
-export const nomeDoFilamento = (filamento, index) => filamento.nome?.trim() || `Filamento ${index + 1}`
-
-const campoTexto =
-  'rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25'
-
 export default function PartesSection({ data, onChange, resultadoPartes }) {
   const { partes, filamentos } = data
 
-  function atualizar(id, campo, valor) {
+  const atualizar = (id, campo, valor) =>
     onChange({ ...data, partes: partes.map((p) => (p.id === id ? { ...p, [campo]: valor } : p)) })
-  }
-
-  function adicionar() {
-    onChange({ ...data, partes: [...partes, criarParteVazia(filamentos[0]?.id)] })
-  }
-
-  function remover(id) {
-    onChange({ ...data, partes: partes.filter((p) => p.id !== id) })
-  }
+  const adicionar = () => onChange({ ...data, partes: [...partes, criarParteVazia(filamentos[0]?.id)] })
+  const remover = (id) => onChange({ ...data, partes: partes.filter((p) => p.id !== id) })
 
   return (
-    <SectionCard
-      icon={<Boxes size={19} className="text-white" />}
-      title="Partes do objeto"
-      subtitle="Cada parte com suas gramas, filamento e tempo de impressão"
-      accent="from-elo-magenta to-elo-pink"
-    >
+    <SectionCard icon={<Boxes size={18} />} title="Partes do objeto" subtitle="Cada parte com suas gramas, filamento e tempo de impressão">
       {partes.map((parte, index) => {
         const calculada = resultadoPartes?.find((r) => r.id === parte.id)
         return (
-          <div key={parte.id} className={index > 0 ? 'border-t border-elo-border/60 pt-4' : undefined}>
+          <div key={parte.id} className={index > 0 ? 'border-t border-elo-border pt-5' : undefined}>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Parte {index + 1}</span>
-              <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Parte {index + 1}</span>
+              <div className="flex items-center gap-1.5">
                 {calculada && (
-                  <span className="rounded-full bg-surface-hover px-2.5 py-0.5 text-[11px] font-semibold text-ink-secondary">
-                    Custo: {formatBRL(calculada.custoUnitario)}
+                  <Badge tom="marca">
+                    Custo {formatBRL(calculada.custoUnitario)}
                     {calculada.quantidade > 1 && ' cada'}
-                  </span>
+                  </Badge>
                 )}
                 {partes.length > 1 && (
-                  <button
-                    type="button"
+                  <IconButton
+                    icone={Trash2}
+                    tamanho="sm"
+                    variante="danger"
+                    rotulo={`Remover parte ${index + 1}`}
                     onClick={() => remover(parte.id)}
-                    aria-label={`Remover parte ${index + 1}`}
-                    className="rounded-full p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-red-400"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  />
                 )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="col-span-2 flex flex-col gap-1.5 sm:col-span-1">
-                <span className="text-[13px] font-medium text-ink-secondary">Nome da parte</span>
-                <input
-                  type="text"
+            <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+              <Campo rotulo="Nome da parte" className="col-span-2 sm:col-span-1">
+                <Input
                   value={parte.nome}
                   onChange={(e) => atualizar(parte.id, 'nome', e.target.value)}
                   placeholder={`Ex: ${index === 0 ? 'Base' : 'Tampa'}`}
-                  className={campoTexto}
                 />
-              </label>
+              </Campo>
               <NumberField
                 label="Quantidade"
                 suffix="un."
@@ -95,20 +78,15 @@ export default function PartesSection({ data, onChange, resultadoPartes }) {
                 placeholder="20"
                 tooltip="Gramas de filamento de UMA unidade desta parte."
               />
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[13px] font-medium text-ink-secondary">Filamento</span>
-                <select
-                  value={parte.filamentoId}
-                  onChange={(e) => atualizar(parte.id, 'filamentoId', e.target.value)}
-                  className={`${campoTexto} text-sm`}
-                >
+              <Campo rotulo="Filamento">
+                <Select value={parte.filamentoId} onChange={(e) => atualizar(parte.id, 'filamentoId', e.target.value)}>
                   {filamentos.map((f, i) => (
                     <option key={f.id} value={f.id}>
                       {nomeDoFilamento(f, i)}
                     </option>
                   ))}
-                </select>
-              </label>
+                </Select>
+              </Campo>
               <NumberField
                 label="Tempo — horas"
                 suffix="h"
@@ -129,14 +107,9 @@ export default function PartesSection({ data, onChange, resultadoPartes }) {
         )
       })}
 
-      <button
-        type="button"
-        onClick={adicionar}
-        className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-elo-border bg-surface-subtle px-3 py-2.5 text-xs font-medium text-ink-secondary transition-colors hover:border-elo-border-strong hover:text-ink-primary"
-      >
-        <Plus size={14} />
+      <Button icone={Plus} onClick={adicionar} className="border-dashed" bloco>
         Adicionar parte
-      </button>
+      </Button>
     </SectionCard>
   )
 }

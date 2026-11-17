@@ -1,12 +1,16 @@
-import { useRef, useState } from 'react'
-import { X, ImagePlus, PackagePlus, Trash2, Loader2, AlertCircle } from 'lucide-react'
+import { useId, useState } from 'react'
+import { PackagePlus, AlertCircle } from 'lucide-react'
 import { formatBRL, formatNumber } from '../utils/format.js'
-import { comprimirImagem } from '../utils/image.js'
+import { medidasVazias, medidasParaApi, medidasValidas } from '../utils/medidas.js'
+import Modal from './ui/Modal.jsx'
+import Button from './ui/Button.jsx'
+import { Campo, Input } from './ui/Field.jsx'
 import CategoriaSelect from './ui/CategoriaSelect.jsx'
 import MedidasField from './ui/MedidasField.jsx'
-import { medidasVazias, medidasParaApi, medidasValidas } from '../utils/medidas.js'
+import FotoField from './ui/FotoField.jsx'
 
 export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnitario, precoVenda, partes }) {
+  const formId = useId()
   const [nome, setNome] = useState('')
   const [quantidade, setQuantidade] = useState('1')
   const [categoria, setCategoria] = useState('')
@@ -15,32 +19,13 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
   const [processandoFoto, setProcessandoFoto] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [erro, setErro] = useState('')
-  const fileInputRef = useRef(null)
-
-  if (!open) return null
 
   const quantidadeNumero = parseInt(quantidade, 10)
-  const podeSalvar =
-    nome.trim().length > 0 && quantidadeNumero > 0 && medidasValidas(medidas) && !processandoFoto && !salvando
-
-  async function handleFotoChange(e) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setErro('')
-    setProcessandoFoto(true)
-    try {
-      setFoto(await comprimirImagem(file))
-    } catch (err) {
-      setErro(err.message || 'Não foi possível processar essa foto.')
-    } finally {
-      setProcessandoFoto(false)
-      e.target.value = ''
-    }
-  }
+  const podeSalvar = nome.trim().length > 0 && quantidadeNumero > 0 && medidasValidas(medidas) && !processandoFoto
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!podeSalvar) return
+    if (!podeSalvar || salvando) return
     setErro('')
     setSalvando(true)
     try {
@@ -77,140 +62,65 @@ export default function RegistrarProdutoModal({ open, onClose, onSave, custoUnit
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-2xl border border-elo-border bg-elo-card p-6 shadow-2xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-ink-primary">Registrar produto</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-ink-muted transition-colors hover:bg-surface-hover hover:text-ink-primary"
-          >
-            <X size={18} />
-          </button>
+    <Modal
+      open={open}
+      onClose={onClose}
+      titulo="Registrar produto"
+      icone={PackagePlus}
+      rodape={
+        <Button type="submit" form={formId} variante="primary" tamanho="lg" bloco icone={PackagePlus} carregando={salvando} disabled={!podeSalvar}>
+          Salvar no estoque
+        </Button>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Campo rotulo="Nome do produto">
+          <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Suporte de celular" data-autofocus />
+        </Campo>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Campo rotulo="Quantidade produzida">
+            <Input inputMode="numeric" value={quantidade} onChange={(e) => setQuantidade(e.target.value.replace(/[^0-9]/g, ''))} placeholder="1" />
+          </Campo>
+          <Campo rotulo="Categoria">
+            <CategoriaSelect value={categoria} onChange={setCategoria} />
+          </Campo>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-secondary">Nome do produto</span>
-            <input
-              type="text"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              placeholder="Ex: Suporte de celular"
-              autoFocus
-              className="rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
-            />
-          </label>
+        <MedidasField value={medidas} onChange={setMedidas} />
+        <FotoField value={foto} onChange={setFoto} onErro={setErro} onProcessando={setProcessandoFoto} />
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-secondary">Quantidade produzida / a produzir</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value.replace(/[^0-9]/g, ''))}
-              placeholder="1"
-              className="rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-secondary">Categoria</span>
-            <CategoriaSelect value={categoria} onChange={setCategoria} />
-          </label>
-
-          <MedidasField value={medidas} onChange={setMedidas} />
-
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-medium text-ink-secondary">Foto do produto (opcional)</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFotoChange}
-              className="hidden"
-            />
-            {foto ? (
-              <div className="relative w-fit">
-                <img src={foto} alt="Pré-visualização" className="h-56 w-56 rounded-xl object-contain border border-elo-border bg-surface-subtle" />
-                <button
-                  type="button"
-                  onClick={() => setFoto(null)}
-                  className="absolute -right-2 -top-2 rounded-full bg-elo-card border border-elo-border p-1 text-ink-secondary hover:text-red-400"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={processandoFoto}
-                className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-elo-border bg-surface-subtle px-3 py-4 text-sm font-medium text-ink-muted transition-colors hover:border-elo-border-strong hover:text-ink-secondary disabled:cursor-wait"
-              >
-                {processandoFoto ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Compactando foto...
-                  </>
-                ) : (
-                  <>
-                    <ImagePlus size={16} />
-                    Anexar foto
-                  </>
-                )}
-              </button>
-            )}
+        {partes?.length > 0 && (
+          <div className="rounded-xl border border-elo-border bg-surface-subtle p-3.5 text-xs text-ink-secondary">
+            <p className="mb-2 font-semibold text-ink-primary">Partes salvas junto ({partes.length})</p>
+            <ul className="flex flex-col gap-1.5">
+              {partes.map((p) => (
+                <li key={p.id} className="flex justify-between gap-3">
+                  <span className="truncate">
+                    {p.nome}
+                    {p.quantidade > 1 && ` ×${p.quantidade}`} · {formatNumber(p.gramas, 0)} g
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums text-ink-primary">{formatBRL(p.precoUnitario)}</span>
+                </li>
+              ))}
+            </ul>
           </div>
+        )}
 
-          {partes?.length > 0 && (
-            <div className="rounded-xl border border-elo-border bg-surface-subtle p-3 text-xs text-ink-secondary">
-              <p className="mb-1.5 font-semibold text-ink-primary">Partes salvas junto ({partes.length})</p>
-              <ul className="flex flex-col gap-1">
-                {partes.map((p) => (
-                  <li key={p.id} className="flex justify-between gap-2">
-                    <span className="truncate">
-                      {p.nome}
-                      {p.quantidade > 1 && ` ×${p.quantidade}`} · {formatNumber(p.gramas, 0)} g
-                    </span>
-                    <span className="shrink-0 font-medium text-ink-primary">{formatBRL(p.precoUnitario)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-surface-hover px-4 py-3 text-xs text-ink-secondary">
+          <span>Custo · preço salvos junto</span>
+          <span className="whitespace-nowrap font-semibold tabular-nums text-ink-primary">
+            {formatBRL(custoUnitario)} · {formatBRL(precoVenda)}
+          </span>
+        </div>
 
-          <div className="flex items-center justify-between rounded-xl bg-surface-hover px-4 py-3 text-xs text-ink-secondary">
-            <span>Custo · preço salvos junto</span>
-            <span className="whitespace-nowrap font-semibold text-ink-primary">
-              {formatBRL(custoUnitario)} · {formatBRL(precoVenda)}
-            </span>
+        {erro && (
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-400">
+            <AlertCircle size={14} className="mt-0.5 shrink-0" />
+            {erro}
           </div>
-
-          {erro && (
-            <div className="flex items-start gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-400">
-              <AlertCircle size={14} className="mt-0.5 shrink-0" />
-              {erro}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={!podeSalvar}
-            className="mt-1 flex items-center justify-center gap-2 rounded-xl bg-elo-gradient px-4 py-3 text-sm font-semibold text-white shadow-md transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {salvando ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <>
-                <PackagePlus size={16} />
-                Salvar no estoque
-              </>
-            )}
-          </button>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </Modal>
   )
 }
