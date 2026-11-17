@@ -43,3 +43,26 @@ Cadastro de novos usuários exige o `CODIGO_CONVITE`; sem essa variável o cadas
 4. No VPS, com o DNS já propagado: `certbot --nginx -d elo3d.wmbens.cloud`.
 
 Atualizações futuras: só `./deploy.sh root@IP_DO_VPS`.
+
+## Migrando os dados do Firebase para o Postgres
+
+Duas etapas, para que sua senha do Firebase nunca vá para o servidor. Não altera nada no Firebase.
+
+```bash
+# 1) No seu computador (Node 18+, dentro de server/). Use a conta que você usa no sistema atual.
+read -rsp "Senha: " FIREBASE_SENHA; export FIREBASE_SENHA
+FIREBASE_EMAIL=voce@exemplo.com node scripts/exportar-firebase.js dump.json
+
+# 2) Envie o dump ao VPS e importe (depois do primeiro ./deploy.sh, para o schema existir):
+scp dump.json root@IP_DO_VPS:/opt/elo3d/server/
+ssh root@IP_DO_VPS
+  cd /opt/elo3d/server && set -a && . /etc/elo3d/api.env && set +a
+  node scripts/importar.js dump.json --simular   # confere o resumo, não grava
+  node scripts/importar.js dump.json             # importa
+  shred -u dump.json                              # apague o dump do servidor
+```
+
+- A importação é uma única transação: se algo falhar, nada é gravado. Ela recusa banco com dados;
+  `--limpar` substitui produtos/vendas/pedidos (os usuários são mantidos).
+- Guarde o `dump.json` como backup num lugar seguro (ele tem dados reais e fica fora do Git).
+- Senhas não migram: cada pessoa cria a conta de novo com o código de convite.
