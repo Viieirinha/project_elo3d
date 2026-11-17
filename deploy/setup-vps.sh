@@ -59,13 +59,23 @@ install -m 644 "$SRC/elo3d-api.service" /etc/systemd/system/elo3d-api.service
 install -m 644 "$SRC/nginx.conf" /etc/nginx/sites-available/elo3d
 ln -sf /etc/nginx/sites-available/elo3d /etc/nginx/sites-enabled/elo3d
 nginx -t
+
+echo ">> Backup diário do banco..."
+install -m 755 "$SRC/backup-db.sh" /usr/local/sbin/elo3d-backup
+install -m 644 "$SRC/elo3d-backup.service" /etc/systemd/system/elo3d-backup.service
+install -m 644 "$SRC/elo3d-backup.timer" /etc/systemd/system/elo3d-backup.timer
+
 systemctl daemon-reload
 systemctl enable --now postgresql nginx
+systemctl enable --now elo3d-backup.timer
 systemctl reload nginx
 
 cat <<MSG
 
-Setup concluído. Próximos passos:
+Setup concluído. Backups diários em /var/backups/elo3d (14 dias). Teste agora com:
+  systemctl start elo3d-backup && ls -lh /var/backups/elo3d
+
+Próximos passos:
   1) No seu computador:  ./deploy.sh root@IP_DO_VPS      (envia o app e sobe a API)
   2) Com o DNS de $DOMINIO já apontando para este servidor, aqui no VPS:
        certbot --nginx -d $DOMINIO

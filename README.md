@@ -66,3 +66,26 @@ ssh root@IP_DO_VPS
   `--limpar` substitui produtos/vendas/pedidos (os usuários são mantidos).
 - Guarde o `dump.json` como backup num lugar seguro (ele tem dados reais e fica fora do Git).
 - Senhas não migram: cada pessoa cria a conta de novo com o código de convite.
+
+## Backup do banco (VPS)
+
+O `setup-vps.sh` instala um backup **diário às ~03:30** (timer do systemd). Cada backup é um dump comprimido,
+verificado, em `/var/backups/elo3d/`, e os arquivos com mais de 14 dias são apagados.
+
+```bash
+systemctl start elo3d-backup && ls -lh /var/backups/elo3d   # rodar um backup agora
+systemctl list-timers elo3d-backup.timer                     # ver o próximo agendado
+journalctl -u elo3d-backup -n 20                             # ver o resultado dos últimos
+```
+
+**Restaurar** (substitui o conteúdo atual do banco pelo do backup):
+
+```bash
+systemctl stop elo3d-api
+zcat /var/backups/elo3d/elo3d-AAAAMMDD-HHMMSS.sql.gz | runuser -u postgres -- psql -v ON_ERROR_STOP=1 -d elo3d
+systemctl start elo3d-api
+```
+
+Os backups ficam no mesmo servidor, então não protegem contra perda do VPS. Copie-os de tempos em tempos para
+fora, por exemplo no seu computador: `rsync -az root@IP_DO_VPS:/var/backups/elo3d/ ./backups-elo3d/`.
+Opções por variável de ambiente no script: `BACKUP_DIR`, `BACKUP_DB`, `BACKUP_DIAS`.
