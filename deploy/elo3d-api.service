@@ -1,0 +1,18 @@
+[Unit]
+Description=ELO 3D API
+After=network.target postgresql.service
+
+[Service]
+User=elo3d
+WorkingDirectory=/opt/elo3d/server
+EnvironmentFile=/etc/elo3d/api.env
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

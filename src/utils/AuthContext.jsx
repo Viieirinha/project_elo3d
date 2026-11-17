@@ -1,12 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import {
-  onAuthStateChanged,
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-} from 'firebase/auth'
-import { auth } from '../firebase.js'
+import { api, getToken, setToken, clearToken } from './api.js'
 
 const AuthContext = createContext(null)
 
@@ -15,27 +8,37 @@ export function AuthProvider({ children }) {
   const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u)
+    if (!getToken()) {
       setCarregando(false)
-    })
-    return unsubscribe
+    } else {
+      api('/auth/me')
+        .then(({ user }) => setUser(user))
+        .catch((err) => {
+          // Só descarta a sessão se o servidor a recusou; falha de rede mantém o token.
+          if (err.status === 401) clearToken()
+        })
+        .finally(() => setCarregando(false))
+    }
+
+    const aoExpirar = () => setUser(null)
+    window.addEventListener('elo3d:unauthorized', aoExpirar)
+    return () => window.removeEventListener('elo3d:unauthorized', aoExpirar)
   }, [])
 
-  async function cadastrar(email, senha, nome) {
-    const credencial = await createUserWithEmailAndPassword(auth, email, senha)
-    if (nome) {
-      await updateProfile(credencial.user, { displayName: nome })
-      setUser({ ...credencial.user, displayName: nome })
-    }
+  async function iniciarSessao(caminho, corpo) {
+    const { token, user } = await api(caminho, { method: 'POST', body: corpo })
+    setToken(token)
+    setUser(user)
   }
 
-  async function entrar(email, senha) {
-    await signInWithEmailAndPassword(auth, email, senha)
-  }
+  const cadastrar = (email, senha, nome, codigoConvite) =>
+    iniciarSessao('/auth/register', { email, senha, nome, codigoConvite })
+
+  const entrar = (email, senha) => iniciarSessao('/auth/login', { email, senha })
 
   async function sair() {
-    await signOut(auth)
+    clearToken()
+    setUser(null)
   }
 
   return (

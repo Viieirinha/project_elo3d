@@ -6,7 +6,10 @@ import logoMark from '../assets/logo-mark.png'
 const MENSAGENS_ERRO = {
   'auth/email-already-in-use': 'Este e-mail já está cadastrado.',
   'auth/invalid-email': 'E-mail inválido.',
-  'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+  'auth/weak-password': 'A senha precisa ter pelo menos 8 caracteres.',
+  'auth/invalid-invite': 'Código de convite inválido.',
+  'auth/signup-disabled': 'O cadastro está desativado.',
+  network: 'Sem conexão com o servidor.',
   'auth/invalid-credential': 'E-mail ou senha incorretos.',
   'auth/wrong-password': 'E-mail ou senha incorretos.',
   'auth/user-not-found': 'E-mail ou senha incorretos.',
@@ -23,6 +26,7 @@ export default function LoginView() {
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
+  const [codigoConvite, setCodigoConvite] = useState('')
   const [erro, setErro] = useState('')
   const [carregando, setCarregando] = useState(false)
 
@@ -34,7 +38,7 @@ export default function LoginView() {
     setCarregando(true)
     try {
       if (isCadastro) {
-        await cadastrar(email.trim(), senha, nome.trim())
+        await cadastrar(email.trim(), senha, nome.trim(), codigoConvite.trim())
       } else {
         await entrar(email.trim(), senha)
       }
@@ -118,11 +122,26 @@ export default function LoginView() {
                 onChange={(e) => setSenha(e.target.value)}
                 placeholder="••••••••"
                 required
-                minLength={6}
+                minLength={isCadastro ? 8 : undefined}
                 autoComplete={isCadastro ? 'new-password' : 'current-password'}
                 className="rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
               />
             </label>
+
+            {isCadastro && (
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[13px] font-medium text-ink-secondary">Código de convite</span>
+                <input
+                  type="text"
+                  value={codigoConvite}
+                  onChange={(e) => setCodigoConvite(e.target.value)}
+                  placeholder="Fornecido pelo administrador"
+                  required
+                  autoComplete="off"
+                  className="rounded-xl border border-elo-border bg-surface-subtle px-3 py-2.5 text-[15px] font-medium text-ink-primary placeholder-ink-muted outline-none transition-all focus:border-transparent focus:shadow-[0_0_0_1.5px_rgba(93,95,239,0.9)] focus:ring-2 focus:ring-[#5D5FEF]/25"
+                />
+              </label>
+            )}
 
             {erro && <p className="text-xs font-medium text-elo-pink">{erro}</p>}
 
