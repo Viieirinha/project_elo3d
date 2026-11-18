@@ -42,6 +42,16 @@ npm install && npm run dev      # o Vite encaminha /api para :3001
 
 Cadastro de novos usuários exige o `CODIGO_CONVITE`; sem essa variável o cadastro fica desativado.
 
+### Testes
+
+```bash
+npm test                                   # cálculo, detector de jobs, validações, agente (com impressora falsa)
+DATABASE_URL=postgres://... npm test       # inclui os testes de integração com o PostgreSQL (sem a variável, são pulados)
+```
+
+Usa o executor nativo do Node (`node --test`), sem dependências novas. O projeto não usa ESLint nem TypeScript; como verificações
+básicas, rode também `npm run build` (compila o front) e `node --check arquivo.js` nos arquivos do servidor e do agente.
+
 ### Esqueci a senha
 
 Não há envio de e-mail configurado, então a tela de login tem **"Esqueci a senha"**: quem tem o código de convite
@@ -93,6 +103,65 @@ ssh root@IP_DO_VPS
   `--limpar` substitui produtos/vendas/pedidos (os usuários são mantidos).
 - Guarde o `dump.json` como backup num lugar seguro (ele tem dados reais e fica fora do Git).
 - Senhas não migram: cada pessoa cria a conta de novo com o código de convite.
+
+## Integração com a impressora (Flashforge AD5X)
+
+Mostra o **estado ao vivo** da impressora (estado, arquivo, progresso, camada, tempo decorrido/restante e temperaturas), registra cada impressão
+concluída com a **duração real** e leva esse tempo para a calculadora (energia e depreciação da máquina). **Somente leitura**: nada de pausar,
+cancelar, mover eixos ou enviar arquivos.
+
+```
+ AD5X ──(rede local, porta 8898)── notebook (agente) ──(HTTPS, só de saída)──> ELO 3D (VPS) ──> navegador
+```
+
+O VPS fica na internet e **não alcança** o IP local da impressora, e o navegador também não deve falar com ela. Por isso um **agente** roda no notebook
+da rede local (pasta [`agente/`](agente/README.md), sem dependências além do Node), consulta a impressora e envia o estado ao sistema.
+O **checkCode fica só no `.env` do notebook**: não vai ao banco, à tela, aos logs nem ao repositório.
+
+### Como configurar IP, número de série e checkCode
+1. **Na impressora**: ative o modo **LAN** (veja abaixo) e anote o **número de série**, o **IP** e o **código de verificação** (`checkCode`, 8 caracteres).
+2. **No sistema**: *Configurações > Impressora > Adicionar*: nome, **IP**, **número de série** (a porta é 8898). O sistema mostra o **token do agente** uma única vez.
+3. **No notebook** (Windows): siga o [passo a passo do agente](agente/README.md): `.env` com o token e o `checkCode`, `node src\index.js --diagnostico`
+   para validar, e `instalar-windows.ps1` para iniciar junto com o Windows.
+
+O **IP é editável** em *Configurações > Impressora > Editar IP / dados*: se o roteador mudar o IP da impressora, basta atualizar ali; o agente usa o novo
+IP na consulta seguinte, sem mexer no notebook. (O ideal é reservar o IP da impressora no roteador.)
+
+### Como ativar o modo LAN na impressora
+No menu da impressora (Configurações / Rede), escolha o modo **LAN** ("LAN Only" / modo local) e **reinicie a impressora**. No modo nuvem a API local responde
+"Lan mode error" e o sistema mostra *"O modo LAN está desativado na impressora"*. Os nomes dos menus variam conforme o firmware. O `checkCode` aparece nesse menu;
+se você gerar outro, o anterior para de funcionar.
+
+### Como usar
+- **Impressora** (menu): estado ao vivo (atualiza a cada ~7 s enquanto a tela está aberta) e histórico de impressões.
+- Em cada job: **vincular a um produto** e **Usar na calculadora**, que preenche horas e minutos reais e, se a impressora informou, as gramas de filamento.
+- A calculadora ganhou o campo **Depreciação da máquina (R$/h)**: é multiplicado pelo tempo de impressão (vazio = sem efeito nos valores de antes).
+- Falhas aparecem com orientação: impressora offline, número de série/checkCode errado, modo LAN desativado, firmware incompatível e agente sem sinal.
+
+### Limitações conhecidas
+- **A API é não oficial** (documentação da comunidade, firmware AD5X 1.2.1) e muda entre versões de firmware. Os nomes de campo foram escritos a partir da
+  documentação e **não foram validados contra uma AD5X real**: rode `node src\index.js --diagnostico` no notebook e confira. Campos ausentes ou desconhecidos
+  não quebram nada (viram "sem informação"). Os fixtures dos testes estão marcados como **não validados**.
+- **Sem ID nem hora de início do job**: a chave do job é *arquivo + início estimado* (instante da consulta menos o tempo decorrido, com precisão de minuto).
+  Se o sistema só vir o job já em andamento, o início é marcado como estimado (≈) e a duração pode ser aproximada.
+- **Filamento é estimativa do fatiador**, não o consumo medido: vem da lista de arquivos da impressora (gramas por ferramenta/slot do IFS) cruzada pelo nome do
+  arquivo. Se o arquivo não estiver na lista, o campo fica manual. Os campos `estimatedLeft*` do `/detail` não têm unidade documentada e **não são usados**.
+- Depende do **notebook ligado**, na rede da impressora e com internet. Com o agente parado o estado não atualiza; quando volta, o job que terminou nesse intervalo
+  é registrado se a impressora ainda mostrar o resultado.
+- O `instalar-windows.ps1` **não foi testado em um Windows real**.
+- O IP aceita apenas endereços da rede local (IPv4).
+
+### Como trocar o provider (ex.: Moonraker/Klipper)
+O agente só conhece a interface `PrinterProvider` ([`agente/src/providers/provider.js`](agente/src/providers/provider.js)): `obterSnapshot(alvo)` devolve um
+"snapshot" neutro (estado, arquivo, progresso, camadas, tempos, temperaturas, filamento). Para outro firmware (por exemplo Moonraker, porta 7125, se você instalar
+o Zmod), crie `agente/src/providers/moonraker/index.js` implementando isso e registre em `PROVIDERS`; no servidor, acrescente o nome em `PROVIDERS`
+(`server/src/impressora/servico.js`). O detector de jobs, a tela e a calculadora **não mudam**.
+
+### Segurança
+- O agente só faz chamadas **de saída** (nenhuma porta aberta). O token dele vale só para enviar o estado **daquela** impressora; fica no banco apenas o hash,
+  e pode ser regenerado (o anterior deixa de valer).
+- O agente recusa IPs fora da rede local (o `checkCode` não sai da rede doméstica) e oculta segredos nos logs.
+- Tudo que vem do agente é validado e limitado no servidor (campos extras são descartados).
 
 ## Backup do banco (VPS)
 
