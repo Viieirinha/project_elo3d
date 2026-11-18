@@ -42,6 +42,22 @@ npm install && npm run dev      # o Vite encaminha /api para :3001
 
 Cadastro de novos usuários exige o `CODIGO_CONVITE`; sem essa variável o cadastro fica desativado.
 
+### Esqueci a senha
+
+Não há envio de e-mail configurado, então a tela de login tem **"Esqueci a senha"**: quem tem o código de convite
+informa o e-mail, o código e uma nova senha (mínimo 8 caracteres) e já entra no sistema. Ao trocar, as sessões
+anteriores daquele usuário deixam de valer. Sem `CODIGO_CONVITE` configurado, a redefinição fica desativada.
+
+Atenção: quem souber o código de convite pode redefinir a senha de qualquer usuário. Mantenha o código restrito à equipe.
+O administrador também pode redefinir direto no servidor (não depende do código):
+
+```bash
+cd /opt/elo3d/server && set -a && . /etc/elo3d/api.env && set +a
+read -rs NOVA_SENHA && export NOVA_SENHA
+node scripts/redefinir-senha.js usuario@exemplo.com
+unset NOVA_SENHA
+```
+
 ## Publicação (VPS Ubuntu, elo3d.wmbens.cloud)
 
 1. DNS: registro `A` de `elo3d` apontando para o IP do VPS.

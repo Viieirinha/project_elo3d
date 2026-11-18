@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   criado_em   timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_email_uq ON usuarios (lower(email));
+-- Sessões (tokens) emitidas antes desta data deixam de valer: usada ao redefinir a senha.
+ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS senha_alterada_em timestamptz;
 
 CREATE TABLE IF NOT EXISTS produtos (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto'
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
@@ -39,10 +40,14 @@ const emailValido = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const publico = (u) => ({ uid: u.id, email: u.email, displayName: u.nome })
 const emitirToken = (u) => jwt.sign({ sub: u.id }, JWT_SECRET, { expiresIn: '30d' })
 
+// Compara o código de convite em tempo constante (não vaza, pelo tempo de resposta, quantos caracteres batem).
+const resumo = (v) => createHash('sha256').update(String(v ?? '')).digest()
+const conviteConfere = (informado) => Boolean(CODIGO_CONVITE) && timingSafeEqual(resumo(informado), resumo(CODIGO_CONVITE))
+
 app.post('/api/auth/register', limitarAuth, h(async (req, res) => {
   const { email, senha, nome, codigoConvite } = req.body ?? {}
   if (!CODIGO_CONVITE) throw new s.HttpError(403, 'Cadastro desativado.', 'auth/signup-disabled')
-  if (codigoConvite !== CODIGO_CONVITE) throw new s.HttpError(403, 'Código inválido.', 'auth/invalid-invite')
+  if (!conviteConfere(codigoConvite)) throw new s.HttpError(403, 'Código inválido.', 'auth/invalid-invite')
   if (!emailValido(email)) throw new s.HttpError(400, 'E-mail inválido.', 'auth/invalid-email')
   if (typeof senha !== 'string' || senha.length < 8) {
     throw new s.HttpError(400, 'Senha fraca.', 'auth/weak-password')
@@ -73,16 +78,38 @@ app.post('/api/auth/login', limitarAuth, h(async (req, res) => {
   res.json({ token: emitirToken(u), user: publico(u) })
 }))
 
+// "Esqueci a senha": sem e-mail configurado, quem tem o código de convite pode definir uma nova senha.
+// Ao trocar, as sessões anteriores deixam de valer (senha_alterada_em) e o usuário já entra logado.
+app.post('/api/auth/reset-password', limitarAuth, h(async (req, res) => {
+  const { email, codigoConvite, novaSenha } = req.body ?? {}
+  if (!CODIGO_CONVITE) throw new s.HttpError(403, 'Redefinição desativada.', 'auth/reset-disabled')
+  if (!conviteConfere(codigoConvite)) throw new s.HttpError(403, 'Código inválido.', 'auth/invalid-invite')
+  if (typeof novaSenha !== 'string' || novaSenha.length < 8) {
+    throw new s.HttpError(400, 'Senha fraca.', 'auth/weak-password')
+  }
+  const hash = await bcrypt.hash(novaSenha, 12)
+  const r = await pool.query(
+    'UPDATE usuarios SET senha_hash = $2, senha_alterada_em = now() WHERE lower(email) = lower($1) RETURNING *',
+    [String(email ?? '').trim(), hash]
+  )
+  const u = r.rows[0]
+  if (!u) throw new s.HttpError(404, 'E-mail não encontrado.', 'auth/user-not-found')
+  res.json({ token: emitirToken(u), user: publico(u) })
+}))
+
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
 // Tudo abaixo exige token válido.
 app.use('/api', h(async (req, res, next) => {
   const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
   try {
-    const { sub } = jwt.verify(token, JWT_SECRET)
+    const { sub, iat } = jwt.verify(token, JWT_SECRET)
     s.validarId(sub)
     const r = await pool.query('SELECT * FROM usuarios WHERE id = $1', [sub])
     if (!r.rows[0]) throw new Error('usuário removido')
+    // token emitido antes da última troca de senha não vale mais (compara em segundos inteiros)
+    const alteradaEm = r.rows[0].senha_alterada_em
+    if (alteradaEm && Math.floor(alteradaEm.getTime() / 1000) > iat) throw new Error('senha alterada')
     req.user = camel(r.rows[0])
     next()
   } catch {
