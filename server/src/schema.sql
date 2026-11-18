@@ -86,3 +86,48 @@ CREATE TABLE IF NOT EXISTS config (
   chave text PRIMARY KEY,
   valor jsonb NOT NULL
 );
+
+-- ---------- Integração com impressoras (o agente no notebook envia o estado; ver agente/README.md) ----------
+CREATE TABLE IF NOT EXISTS impressoras (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome          text NOT NULL,
+  provider      text NOT NULL DEFAULT 'flashforge',   -- hoje só 'flashforge'; outros (ex.: 'moonraker') entram sem mudar o esquema
+  ip            text NOT NULL,                          -- editável: o agente lê o IP atual a cada consulta
+  porta         integer NOT NULL DEFAULT 8898 CHECK (porta BETWEEN 1 AND 65535),
+  numero_serie  text NOT NULL,
+  ativa         boolean NOT NULL DEFAULT true,
+  token_hash    text,                                   -- sha256 do token do agente; o token em si nunca é guardado
+  criado_em     timestamptz NOT NULL DEFAULT now(),
+  atualizado_em timestamptz
+);
+-- O checkCode da impressora NÃO é guardado aqui: fica só no arquivo de configuração do agente (no notebook).
+
+CREATE TABLE IF NOT EXISTS impressora_estado (
+  impressora_id uuid PRIMARY KEY REFERENCES impressoras(id) ON DELETE CASCADE,
+  snapshot      jsonb,                                  -- último estado normalizado recebido do agente
+  recebido_em   timestamptz,                            -- último sinal do agente
+  erro_codigo   text,                                   -- offline | credencial | lan | firmware | servico
+  erro_mensagem text,
+  job_atual     jsonb,                                  -- job em andamento; persistido para sobreviver a reinícios sem duplicar
+  ui_visto_em   timestamptz                             -- última consulta da tela: define o ritmo de consulta do agente
+);
+
+CREATE TABLE IF NOT EXISTS impressao_jobs (
+  id               uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  impressora_id    uuid NOT NULL REFERENCES impressoras(id) ON DELETE CASCADE,
+  chave_job        text NOT NULL,                       -- arquivo + início do job (calculado uma única vez ao abrir o job)
+  arquivo          text NOT NULL,
+  iniciado_em      timestamptz NOT NULL,
+  inicio_estimado  boolean NOT NULL DEFAULT false,      -- true quando o sistema só viu o job já em andamento
+  concluido_em     timestamptz NOT NULL,
+  duracao_segundos integer NOT NULL CHECK (duracao_segundos >= 0),
+  resultado        text NOT NULL CHECK (resultado IN ('concluido', 'cancelado', 'erro', 'interrompido')),
+  camada_total     integer,
+  gramas_estimadas numeric(10,2),                       -- estimativa do fatiador (a API não informa o consumo real)
+  materiais        jsonb,                               -- [{ferramenta, material, cor, gramas, slot}]
+  produto_id       uuid,                                -- vínculo opcional (sem FK: o produto pode ser removido)
+  observacoes      text NOT NULL DEFAULT '',
+  criado_em        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (impressora_id, chave_job)                     -- garante que o mesmo job nunca seja registrado duas vezes
+);
+CREATE INDEX IF NOT EXISTS impressao_jobs_concluido_idx ON impressao_jobs (concluido_em DESC);

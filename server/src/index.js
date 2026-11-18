@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { pool, tx, camel } from './db.js'
 import * as s from './services.js'
+import { rotasAgente, rotasUsuario } from './impressora/rotas.js'
 
 const { DATABASE_URL, JWT_SECRET, CODIGO_CONVITE } = process.env
 const PORT = Number(process.env.PORT) || 3001
@@ -99,6 +100,9 @@ app.post('/api/auth/reset-password', limitarAuth, h(async (req, res) => {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
+// O agente da impressora usa o próprio token (não o login do usuário): rotas registradas antes do middleware abaixo.
+rotasAgente(app, { h, pool, tx })
+
 // Tudo abaixo exige token válido.
 app.use('/api', h(async (req, res, next) => {
   const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
@@ -122,6 +126,8 @@ app.get('/api/auth/me', (req, res) => res.json({ user: publico({ ...req.user, id
 // ---------- dados ----------
 const q = (fn) => h(async (req, res) => res.json(await fn(pool, req)))
 const t = (fn) => h(async (req, res) => res.json(await tx((c) => fn(c, req))))
+
+rotasUsuario(app, { q, t })
 
 app.get('/api/categorias', q((c) => s.getCategorias(c)))
 app.post('/api/categorias', t((c, req) => s.adicionarCategoria(c, req.body?.nome)))
