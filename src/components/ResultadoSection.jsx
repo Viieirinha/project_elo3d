@@ -11,6 +11,7 @@ import {
   Pencil,
   RotateCcw,
   Boxes,
+  Printer,
 } from 'lucide-react'
 import { formatBRL, formatNumber, parseLocaleNumber } from '../utils/format.js'
 import { registrarProduto } from '../utils/estoque.js'
@@ -52,6 +53,7 @@ export default function ResultadoSection({ results, margem, onMargemChange, prec
     quantidadePecas,
     custoFilamento,
     custoEnergia,
+    custoDepreciacao,
     custoFixo,
     maoDeObra,
     custoTotal,
@@ -137,6 +139,7 @@ export default function ResultadoSection({ results, margem, onMargemChange, prec
       <div className="divide-y divide-elo-border border-y border-elo-border">
         <LinhaCusto icone={<Layers size={15} />} rotulo="Custo do filamento" valor={custoFilamento} />
         <LinhaCusto icone={<Zap size={15} />} rotulo="Custo de energia" valor={custoEnergia} />
+        <LinhaCusto icone={<Printer size={15} />} rotulo="Depreciação da máquina" valor={custoDepreciacao} />
         <LinhaCusto icone={<Wrench size={15} />} rotulo="Custo fixo" valor={custoFixo} />
         <LinhaCusto icone={<TrendingUp size={15} />} rotulo="Mão de obra" valor={maoDeObra} />
       </div>

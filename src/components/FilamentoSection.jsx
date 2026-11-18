@@ -3,14 +3,9 @@ import SectionCard from './ui/SectionCard.jsx'
 import NumberField from './ui/NumberField.jsx'
 import Button, { IconButton } from './ui/Button.jsx'
 import { Campo, Input } from './ui/Field.jsx'
+import { criarFilamentoVazio } from '../utils/filamento.js'
 
-function gerarIdFilamento() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-}
-
-export function criarFilamentoVazio() {
-  return { id: gerarIdFilamento(), nome: '', precoRolo: '', pesoRolo: '', filamentoUsado: '' }
-}
+export { criarFilamentoVazio }
 
 export const nomeDoFilamento = (filamento, index) => filamento.nome?.trim() || `Filamento ${index + 1}`
 

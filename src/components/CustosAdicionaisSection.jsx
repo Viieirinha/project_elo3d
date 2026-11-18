@@ -23,6 +23,15 @@ export default function CustosAdicionaisSection({ data, onChange }) {
           tooltip="Valor cobrado pelo seu tempo de trabalho na peça: modelagem, acabamento, montagem, etc."
         />
       </div>
+      <NumberField
+        label="Depreciação da máquina"
+        prefix="R$"
+        suffix="/ hora"
+        value={data.depreciacaoHora}
+        onChange={(v) => onChange({ ...data, depreciacaoHora: v })}
+        placeholder="0,00"
+        tooltip="Desgaste da impressora por hora de impressão. Exemplo: preço da impressora ÷ vida útil estimada em horas (R$ 4.000 ÷ 5.000 h = R$ 0,80/h). É multiplicado pelo tempo de impressão."
+      />
     </SectionCard>
   )
 }

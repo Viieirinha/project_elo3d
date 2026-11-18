@@ -19,6 +19,9 @@ export function calcularResultado(form, margem, precoManual = null) {
   const custoFixo = parseLocaleNumber(form.custoFixo)
   const maoDeObra = parseLocaleNumber(form.maoDeObra)
   const custoEnergiaDe = (horas) => (horas > 0 ? (consumoW / 1000) * horas * valorKwh : 0)
+  // Depreciação da máquina: R$ por hora de impressão (desgaste/amortização da impressora). Vazio = 0.
+  const depreciacaoHora = parseLocaleNumber(form.depreciacaoHora)
+  const custoDepreciacaoDe = (horas) => (horas > 0 ? depreciacaoHora * horas : 0)
   const modoPartes = Boolean(form.modoPartes)
 
   const filamentos = form.filamentos.map((f) => ({
@@ -34,6 +37,7 @@ export function calcularResultado(form, margem, precoManual = null) {
   let quantidadePecas = 1
   let custoFilamento
   let custoEnergia
+  let custoDepreciacao
   let custoTotal
   let gramasTotais
   let horasTotais
@@ -50,7 +54,8 @@ export function calcularResultado(form, margem, precoManual = null) {
     custoFilamento = soma(filamentos, (f) => custoDoGrama(f) * (f.usado / quantidadePecas))
     gramasTotais = soma(filamentos, (f) => f.usado / quantidadePecas)
     custoEnergia = custoEnergiaDe(horasTotais)
-    custoTotal = custoFilamento + custoEnergia + custoFixo + maoDeObra
+    custoDepreciacao = custoDepreciacaoDe(horasTotais)
+    custoTotal = custoFilamento + custoEnergia + custoDepreciacao + custoFixo + maoDeObra
   } else {
     const base = form.partes.map((p, i) => {
       const filamento = filamentos.find((f) => f.id === p.filamentoId) ?? filamentos[0]
@@ -59,6 +64,7 @@ export function calcularResultado(form, margem, precoManual = null) {
       const horas = parseLocaleNumber(p.horas) + parseLocaleNumber(p.minutos) / 60
       const filamentoUnit = custoDoGrama(filamento) * gramas
       const energiaUnit = custoEnergiaDe(horas)
+      const depreciacaoUnit = custoDepreciacaoDe(horas)
       return {
         id: p.id,
         nome: p.nome.trim() || `Parte ${i + 1}`,
@@ -67,14 +73,16 @@ export function calcularResultado(form, margem, precoManual = null) {
         horas,
         filamentoUnit,
         energiaUnit,
+        depreciacaoUnit,
         semTempoValido: (p.horas.trim() !== '' || p.minutos.trim() !== '') && horas <= 0,
-        subtotal: (filamentoUnit + energiaUnit) * quantidade,
+        subtotal: (filamentoUnit + energiaUnit + depreciacaoUnit) * quantidade,
       }
     })
 
     tempoInvalido = base.some((p) => p.semTempoValido)
     custoFilamento = soma(base, (p) => p.filamentoUnit * p.quantidade)
     custoEnergia = soma(base, (p) => p.energiaUnit * p.quantidade)
+    custoDepreciacao = soma(base, (p) => p.depreciacaoUnit * p.quantidade)
     gramasTotais = soma(base, (p) => p.gramas * p.quantidade)
     horasTotais = soma(base, (p) => p.horas * p.quantidade)
 
@@ -121,6 +129,7 @@ export function calcularResultado(form, margem, precoManual = null) {
     quantidadePecas,
     custoFilamento,
     custoEnergia,
+    custoDepreciacao,
     custoFixo,
     maoDeObra,
     custoTotal,
