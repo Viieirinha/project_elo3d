@@ -5,12 +5,17 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "migrate": "node src/migrate.js"
+    "migrate": "node src/migrate.js",
+    "dev": "node --env-file=.env src/index.js",
+    "migrate:dev": "node --env-file=.env src/migrate.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=20.6"
   }
 }

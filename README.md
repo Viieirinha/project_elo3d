@@ -29,6 +29,8 @@ npm run dev
 
 ## Desenvolvimento local
 
+> Dica: no servidor, `cp .env.example .env` (ajuste os valores) e use `npm run migrate:dev` e `npm run dev`, que leem o arquivo `.env`.
+
 ```bash
 # 1) Postgres com um banco vazio, depois:
 cd server && npm install
@@ -117,6 +119,8 @@ cancelar, mover eixos ou enviar arquivos.
 O VPS fica na internet e **não alcança** o IP local da impressora, e o navegador também não deve falar com ela. Por isso um **agente** roda no notebook
 da rede local (pasta [`agente/`](agente/README.md), sem dependências além do Node), consulta a impressora e envia o estado ao sistema.
 O **checkCode fica só no `.env` do notebook**: não vai ao banco, à tela, aos logs nem ao repositório.
+
+> **Passo a passo completo** (impressora, notebook, teste em desenvolvimento e produção): [docs/GUIA-PASSO-A-PASSO.md](docs/GUIA-PASSO-A-PASSO.md).
 
 ### Como configurar IP, número de série e checkCode
 1. **Na impressora**: ative o modo **LAN** (veja abaixo) e anote o **número de série**, o **IP** e o **código de verificação** (`checkCode`, 8 caracteres).
