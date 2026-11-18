@@ -36,13 +36,17 @@ export function AuthProvider({ children }) {
 
   const entrar = (email, senha) => iniciarSessao('/auth/login', { email, senha })
 
+  // Define uma nova senha (com o código de convite) e já entra no sistema.
+  const redefinirSenha = (email, codigoConvite, novaSenha) =>
+    iniciarSessao('/auth/reset-password', { email, codigoConvite, novaSenha })
+
   async function sair() {
     clearToken()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, carregando, cadastrar, entrar, sair }}>
+    <AuthContext.Provider value={{ user, carregando, cadastrar, entrar, redefinirSenha, sair }}>
       {children}
     </AuthContext.Provider>
   )
