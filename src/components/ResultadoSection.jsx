@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Sparkles,
   TrendingUp,
@@ -70,6 +70,25 @@ export default function ResultadoSection({ results, margem, onMargemChange, prec
   const toast = useToast()
   const [modalAberto, setModalAberto] = useState(false)
 
+  // O painel tem sempre a altura do conteúdo (sem rolagem interna). Ele só fica fixo na tela
+  // (sticky) quando cabe inteiro nela; se for mais alto, rola junto com a página para que nada
+  // fique escondido abaixo da dobra.
+  const painelRef = useRef(null)
+  const [podeFixar, setPodeFixar] = useState(false)
+  useEffect(() => {
+    const el = painelRef.current
+    if (!el) return undefined
+    const medir = () => setPodeFixar(window.matchMedia('(min-width: 1280px)').matches && el.offsetHeight <= window.innerHeight - 48)
+    const observador = new ResizeObserver(medir)
+    observador.observe(el)
+    window.addEventListener('resize', medir)
+    medir()
+    return () => {
+      observador.disconnect()
+      window.removeEventListener('resize', medir)
+    }
+  }, [])
+
   async function handleSalvarProduto(produto) {
     await registrarProduto(produto)
     setModalAberto(false)
@@ -92,7 +111,7 @@ export default function ResultadoSection({ results, margem, onMargemChange, prec
   const margemDoSlider = Math.min(MARGEM_MAXIMA_SLIDER, Math.max(0, margemSobreCusto ?? margem))
 
   return (
-    <section className="card animate-fade-in p-5 sm:p-6 xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:self-start xl:overflow-y-auto">
+    <section ref={painelRef} className={`card animate-fade-in p-5 sm:p-6 xl:self-start ${podeFixar ? 'xl:sticky xl:top-6' : ''}`}>
       <div className="mb-4 flex items-center gap-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-elo-blue/10 text-elo-blue">
           <Sparkles size={18} />
