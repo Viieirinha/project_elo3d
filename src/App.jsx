@@ -8,6 +8,8 @@ import { criarParteVazia } from './components/PartesSection.jsx'
 import { SkeletonCards } from './components/ui/Skeleton.jsx'
 import { useAuth } from './utils/AuthContext.jsx'
 import { calcularResultado } from './utils/calculo.js'
+import { aplicarJobNoForm, formatarDuracao } from './utils/jobParaCalculo.js'
+import { useToast } from './components/ui/Toast.jsx'
 
 const LoginView = lazy(() => import('./components/LoginView.jsx'))
 const EstoqueView = lazy(() => import('./components/EstoqueView.jsx'))
@@ -16,6 +18,7 @@ const HistoricoView = lazy(() => import('./components/HistoricoView.jsx'))
 const ConfiguracoesView = lazy(() => import('./components/ConfiguracoesView.jsx'))
 const PedidosView = lazy(() => import('./components/PedidosView.jsx'))
 const DashboardView = lazy(() => import('./components/DashboardView.jsx'))
+const ImpressoraView = lazy(() => import('./components/ImpressoraView.jsx'))
 
 const TELAS = {
   estoque: EstoqueView,
@@ -24,6 +27,7 @@ const TELAS = {
   configuracoes: ConfiguracoesView,
   pedidos: PedidosView,
   dashboard: DashboardView,
+  impressora: ImpressoraView,
 }
 
 function TelaCarregando() {
@@ -47,6 +51,7 @@ function criarEstadoPadrao() {
     valorKwh: '0,83',
     custoFixo: '',
     maoDeObra: '',
+    depreciacaoHora: '',
   }
 }
 
@@ -54,6 +59,7 @@ const DEFAULT_MARGEM = 100
 
 export default function App() {
   const { user, carregando } = useAuth()
+  const toast = useToast()
   // O estado da calculadora fica aqui para não se perder ao trocar de tela.
   const [form, setForm] = useState(criarEstadoPadrao)
   const [margem, setMargem] = useState(DEFAULT_MARGEM)
@@ -66,6 +72,17 @@ export default function App() {
   function handleMargemChange(valor) {
     setPrecoManual(null)
     setMargem(valor)
+  }
+
+  // Leva o tempo real (e o filamento estimado) de um job da impressora para a calculadora.
+  function usarJobNaCalculadora(job) {
+    const { form: novo, avisos } = aplicarJobNoForm(form, job)
+    setForm(novo)
+    setPrecoManual(null)
+    setView('calculadora')
+    window.scrollTo({ top: 0 })
+    toast.sucesso(`Tempo real da impressão (${formatarDuracao(job.duracaoSegundos)}) aplicado na calculadora.`)
+    if (avisos.length) toast.info(avisos.join(' '))
   }
 
   function handleReset() {
@@ -91,7 +108,7 @@ export default function App() {
       <ErrorBoundary key={view}>
         {Tela ? (
           <Suspense fallback={<SkeletonCards quantidade={3} altura="h-40" />}>
-            <Tela />
+            <Tela onUsarNaCalculadora={usarJobNaCalculadora} onNavegar={setView} />
           </Suspense>
         ) : (
           <CalculadoraView

@@ -11,6 +11,7 @@ import {
   Moon,
   LogOut,
   Ellipsis,
+  Printer,
 } from 'lucide-react'
 import logoMark from '../assets/logo-mark.webp'
 import { getTheme, applyTheme } from '../utils/theme.js'
@@ -24,6 +25,7 @@ export const TELAS = [
   { id: 'estoque', rotulo: 'Estoque', icone: Package },
   { id: 'vendas', rotulo: 'Vendas', icone: ShoppingCart },
   { id: 'pedidos', rotulo: 'Encomendas', icone: ClipboardList },
+  { id: 'impressora', rotulo: 'Impressora', icone: Printer },
   { id: 'historico', rotulo: 'Histórico', icone: History },
   { id: 'configuracoes', rotulo: 'Configurações', icone: Settings },
 ]

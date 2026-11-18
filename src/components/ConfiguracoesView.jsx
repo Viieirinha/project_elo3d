@@ -8,6 +8,7 @@ import Button from './ui/Button.jsx'
 import Skeleton from './ui/Skeleton.jsx'
 import { ErroCarregamento } from './ui/EmptyState.jsx'
 import { Campo, Input } from './ui/Field.jsx'
+import ImpressoraConfig from './ImpressoraConfig.jsx'
 import { useToast } from './ui/Toast.jsx'
 
 function Secao({ icone, titulo, subtitulo, children }) {
@@ -143,6 +144,8 @@ export default function ConfiguracoesView() {
             </ul>
           )}
         </Secao>
+
+        <ImpressoraConfig />
       </div>
     </div>
   )
