@@ -8,3 +8,7 @@ server/node_modules
 .env
 *.env
 dump*.json
+
+agente/*.log
+agente/*.log.1
+agente/diagnostico-detail.json

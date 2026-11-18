@@ -1,0 +1,13 @@
+{
+  "name": "elo3d-agente",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Agente do ELO 3D: roda no notebook da rede local e envia o estado da impressora ao sistema.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/index.js",
+    "diagnostico": "node src/index.js --diagnostico",
+    "test": "node --test \"test/**/*.test.js\""
+  }
+}
