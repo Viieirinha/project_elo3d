@@ -42,6 +42,24 @@ npm install && npm run dev      # o Vite encaminha /api para :3001
 
 Cadastro de novos usuários exige o `CODIGO_CONVITE`; sem essa variável o cadastro fica desativado.
 
+### Expiração da sessão
+
+A sessão expira por **inatividade** e tem um **limite máximo** de duração; depois disso é preciso entrar de novo (a tela de login avisa
+"Sua sessão expirou").
+
+| Regra | Padrão | Variável (em `/etc/elo3d/api.env`) |
+|---|---|---|
+| Tempo sem usar o sistema até expirar | **60 minutos** | `SESSAO_INATIVIDADE_MIN` |
+| Duração máxima, mesmo usando sem parar | **12 horas** | `SESSAO_MAXIMA_HORAS` |
+
+Para mudar: edite o arquivo e reinicie com `systemctl restart elo3d-api`. Exemplo (30 min / 8 h): `SESSAO_INATIVIDADE_MIN=30` e `SESSAO_MAXIMA_HORAS=8`.
+Valores inválidos impedem o servidor de iniciar, com uma mensagem clara.
+
+- "Usar" significa mexer no mouse, teclar, rolar ou tocar na tela: enquanto isso a sessão é **renovada sozinha**. Consultas automáticas em segundo
+  plano **não** renovam a sessão: sem ninguém usando, ela expira.
+- Sair em uma aba desconecta as outras abas. Trocar a senha encerra as sessões antigas daquele usuário (com aviso próprio).
+- Na primeira atualização com esta função, todos precisam entrar de novo uma vez (as sessões antigas, de 30 dias, deixam de valer).
+
 ### Esqueci a senha
 
 Não há envio de e-mail configurado, então a tela de login tem **"Esqueci a senha"**: quem tem o código de convite
