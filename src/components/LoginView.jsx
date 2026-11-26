@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { LogIn, UserPlus, KeyRound, ArrowLeft, Eye, EyeOff, Calculator, Package, ClipboardList } from 'lucide-react'
+import { LogIn, UserPlus, KeyRound, ArrowLeft, Eye, EyeOff, Calculator, Package, ClipboardList, Clock } from 'lucide-react'
 import { useAuth } from '../utils/AuthContext.jsx'
+import { MENSAGENS_AVISO_SAIDA } from '../utils/sessao.js'
 import logoMark from '../assets/logo-mark.webp'
 import Button from './ui/Button.jsx'
 import Segmented from './ui/Segmented.jsx'
@@ -67,7 +68,7 @@ function CampoSenha({ rotulo = 'Senha', dica, value, onChange, novo = false, vis
 }
 
 export default function LoginView() {
-  const { entrar, cadastrar, redefinirSenha } = useAuth()
+  const { entrar, cadastrar, redefinirSenha, avisoSaida } = useAuth()
   const [modo, setModo] = useState('entrar')
   const [nome, setNome] = useState('')
   const [email, setEmail] = useState('')
@@ -162,6 +163,13 @@ export default function LoginView() {
               onChange={mudarModo}
               className="mb-5 w-full [&>button]:flex-1 [&>button]:justify-center"
             />
+          )}
+
+          {avisoSaida && (
+            <p role="status" className="mb-4 flex items-start gap-2.5 rounded-xl border border-elo-yellow/30 bg-elo-yellow/10 px-3.5 py-3 text-[13px] font-medium text-elo-yellow">
+              <Clock size={16} className="mt-0.5 shrink-0" />
+              {MENSAGENS_AVISO_SAIDA[avisoSaida]}
+            </p>
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">

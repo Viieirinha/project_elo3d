@@ -54,6 +54,25 @@ DATABASE_URL=postgres://... npm test       # inclui os testes de integração co
 Usa o executor nativo do Node (`node --test`), sem dependências novas. O projeto não usa ESLint nem TypeScript; como verificações
 básicas, rode também `npm run build` (compila o front) e `node --check arquivo.js` nos arquivos do servidor e do agente.
 
+### Expiração da sessão
+
+A sessão expira por **inatividade** e tem um **limite máximo** de duração; depois disso é preciso entrar de novo (a tela de login avisa
+"Sua sessão expirou").
+
+| Regra | Padrão | Variável (em `/etc/elo3d/api.env`) |
+|---|---|---|
+| Tempo sem usar o sistema até expirar | **60 minutos** | `SESSAO_INATIVIDADE_MIN` |
+| Duração máxima, mesmo usando sem parar | **12 horas** | `SESSAO_MAXIMA_HORAS` |
+
+Para mudar: edite o arquivo e reinicie com `systemctl restart elo3d-api`. Exemplo (30 min / 8 h): `SESSAO_INATIVIDADE_MIN=30` e `SESSAO_MAXIMA_HORAS=8`.
+Valores inválidos impedem o servidor de iniciar, com uma mensagem clara.
+
+- "Usar" significa mexer no mouse, teclar, rolar ou tocar na tela: enquanto isso a sessão é **renovada sozinha**. Consultas automáticas, como a da tela
+  da Impressora (a cada 7 s), **não** renovam a sessão: sem ninguém usando, ela expira mesmo com essa tela aberta.
+- Sair em uma aba desconecta as outras abas. Trocar a senha encerra as sessões antigas daquele usuário (com aviso próprio).
+- Na primeira atualização com esta função, todos precisam entrar de novo uma vez (as sessões antigas, de 30 dias, deixam de valer).
+- O agente da impressora **não** usa esta sessão: ele tem o próprio token e não expira por inatividade.
+
 ### Esqueci a senha
 
 Não há envio de e-mail configurado, então a tela de login tem **"Esqueci a senha"**: quem tem o código de convite
