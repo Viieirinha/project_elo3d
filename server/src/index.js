@@ -1,14 +1,23 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import express from 'express'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
 import { pool, tx, camel } from './db.js'
 import * as s from './services.js'
+import { criarSessao, lerConfigSessao, ErroSessao, MENSAGEM_EXPIRADA } from './sessao.js'
 
 const { DATABASE_URL, JWT_SECRET, CODIGO_CONVITE } = process.env
 const PORT = Number(process.env.PORT) || 3001
 if (!DATABASE_URL || !JWT_SECRET || JWT_SECRET.length < 32) {
   console.error('Defina DATABASE_URL e JWT_SECRET (mínimo 32 caracteres) no ambiente.')
+  process.exit(1)
+}
+
+// Duração da sessão (variáveis opcionais em /etc/elo3d/api.env): padrão 60 min de inatividade e 12 h no máximo.
+let sessao
+try {
+  sessao = criarSessao({ segredo: JWT_SECRET, ...lerConfigSessao() })
+} catch (e) {
+  console.error(e.message)
   process.exit(1)
 }
 
@@ -38,7 +47,12 @@ function limitarAuth(req, res, next) {
 // ---------- autenticação ----------
 const emailValido = (e) => typeof e === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)
 const publico = (u) => ({ uid: u.id, email: u.email, displayName: u.nome })
-const emitirToken = (u) => jwt.sign({ sub: u.id }, JWT_SECRET, { expiresIn: '30d' })
+// Resposta de login/cadastro/redefinição: token de sessão + quando ele expira (o front renova enquanto há atividade).
+const versaoDaSenha = (linha) => (linha.senha_alterada_em ? linha.senha_alterada_em.getTime() : 0)
+const sessaoDe = (u) => {
+  const { token, expiraEm } = sessao.emitir(u.id, undefined, versaoDaSenha(u))
+  return { token, expiraEm, user: publico(u) }
+}
 
 // Compara o código de convite em tempo constante (não vaza, pelo tempo de resposta, quantos caracteres batem).
 const resumo = (v) => createHash('sha256').update(String(v ?? '')).digest()
@@ -59,7 +73,7 @@ app.post('/api/auth/register', limitarAuth, h(async (req, res) => {
       [email.trim(), (nome ?? '').trim() || null, hash]
     )
     const u = r.rows[0]
-    res.status(201).json({ token: emitirToken(u), user: publico(u) })
+    res.status(201).json(sessaoDe(u))
   } catch (err) {
     if (err.code === '23505') throw new s.HttpError(409, 'E-mail já cadastrado.', 'auth/email-already-in-use')
     throw err
@@ -75,7 +89,7 @@ app.post('/api/auth/login', limitarAuth, h(async (req, res) => {
   // compara sempre, mesmo sem usuário, para não revelar se o e-mail existe
   const ok = await bcrypt.compare(String(senha ?? ''), u?.senha_hash ?? HASH_FALSO)
   if (!u || !ok) throw new s.HttpError(401, 'Credenciais inválidas.', 'auth/invalid-credential')
-  res.json({ token: emitirToken(u), user: publico(u) })
+  res.json(sessaoDe(u))
 }))
 
 // "Esqueci a senha": sem e-mail configurado, quem tem o código de convite pode definir uma nova senha.
@@ -94,30 +108,42 @@ app.post('/api/auth/reset-password', limitarAuth, h(async (req, res) => {
   )
   const u = r.rows[0]
   if (!u) throw new s.HttpError(404, 'E-mail não encontrado.', 'auth/user-not-found')
-  res.json({ token: emitirToken(u), user: publico(u) })
+  res.json(sessaoDe(u))
 }))
 
 app.get('/api/health', (req, res) => res.json({ ok: true }))
 
-// Tudo abaixo exige token válido.
+// Tudo abaixo exige uma sessão válida (token dentro do prazo de inatividade e do limite máximo).
 app.use('/api', h(async (req, res, next) => {
   const token = (req.headers.authorization ?? '').replace(/^Bearer /, '')
   try {
-    const { sub, iat } = jwt.verify(token, JWT_SECRET)
-    s.validarId(sub)
-    const r = await pool.query('SELECT * FROM usuarios WHERE id = $1', [sub])
-    if (!r.rows[0]) throw new Error('usuário removido')
-    // token emitido antes da última troca de senha não vale mais (compara em segundos inteiros)
-    const alteradaEm = r.rows[0].senha_alterada_em
-    if (alteradaEm && Math.floor(alteradaEm.getTime() / 1000) > iat) throw new Error('senha alterada')
+    const dados = sessao.verificar(token) // lança ErroSessao: expirada x inválida
+    s.validarId(dados.sub)
+    const r = await pool.query('SELECT * FROM usuarios WHERE id = $1', [dados.sub])
+    if (!r.rows[0]) throw new ErroSessao('auth/unauthorized', 'Sessão inválida.')
+    // Token de uma senha anterior não vale mais (a versão da senha vai dentro do token: não depende de horários).
+    if (dados.versaoSenha !== versaoDaSenha(r.rows[0])) throw new ErroSessao('auth/senha-alterada', 'Senha alterada.')
     req.user = camel(r.rows[0])
+    req.sessao = dados
     next()
-  } catch {
-    res.status(401).json({ code: 'auth/unauthorized', message: 'Sessão expirada.' })
+  } catch (e) {
+    const codigo = e instanceof ErroSessao ? e.codigo : 'auth/unauthorized'
+    const mensagens = { 'auth/sessao-expirada': MENSAGEM_EXPIRADA, 'auth/senha-alterada': 'Sua senha foi alterada. Entre novamente.' }
+    res.status(401).json({ code: codigo, message: mensagens[codigo] ?? 'Sessão inválida.' })
   }
 }))
 
-app.get('/api/auth/me', (req, res) => res.json({ user: publico({ ...req.user, id: req.user.id }) }))
+// `expiraEm`: quando a sessão atual expira se não houver renovação (o front agenda o aviso/saída com isso).
+app.get('/api/auth/me', (req, res) =>
+  res.json({ user: publico({ ...req.user, id: req.user.id }), expiraEm: new Date(req.sessao.exp * 1000).toISOString() })
+)
+
+// Renovação EXPLÍCITA, chamada pelo front só quando há atividade real do usuário. Consultas automáticas
+// (como a da tela da impressora) não passam por aqui e, portanto, não estendem a sessão.
+app.post('/api/auth/renovar', (req, res) => {
+  const { token, expiraEm } = sessao.renovar(req.sessao) // recusa após o limite máximo (cai no tratador de erros: 401)
+  res.json({ token, expiraEm })
+})
 
 // ---------- dados ----------
 const q = (fn) => h(async (req, res) => res.json(await fn(pool, req)))
@@ -154,6 +180,7 @@ app.delete('/api/pedidos/:id', t((c, req) => s.removerPedido(c, req.params.id)))
 // ---------- erros ----------
 app.use('/api', (req, res) => res.status(404).json({ message: 'Rota não encontrada.' }))
 app.use((err, req, res, next) => {
+  if (err instanceof ErroSessao) return res.status(401).json({ code: err.codigo, message: err.message })
   if (err instanceof s.HttpError) return res.status(err.status).json({ code: err.code, message: err.message })
   if (err.type === 'entity.too.large') return res.status(413).json({ message: 'Imagem muito grande.' })
   if (err.type === 'entity.parse.failed') return res.status(400).json({ message: 'JSON inválido.' })
